@@ -18,6 +18,9 @@ dependencies {
     testImplementation(kotlin("test"))
 }
 
+tasks.assemble {
+    dependsOn("reobfJar")
+}
 tasks.build {
     dependsOn("shadowJar")
 }
