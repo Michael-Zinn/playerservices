@@ -6,6 +6,12 @@ A plugin that allows players to link chat services to their usernames.
 
 More infos coming soon.
 
+## Build instructions
+
+- Execute `./gradlew build`
+- Copy JAR file `./build/libs/PlayerServices-1.0.0-alpha.jar` to your server's `plugins` directory
+- Make your server reload its plugins or restart the server
+
 ## History
 
 2014 or earlier: This plugin was written for the social media heavy Otherland server.
