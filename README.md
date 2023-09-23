@@ -1,6 +1,6 @@
 # Player Services (Minecraft Plugin)
 
-(Formally known as HappyAPI)
+(Formerly known as HappyAPI)
 
 A plugin that allows players to link chat services to their usernames.
 
