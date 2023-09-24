@@ -15,7 +15,9 @@ repositories {
 
 dependencies {
     paperweight.paperDevBundle("1.20.1-R0.1-SNAPSHOT")
+
     testImplementation(kotlin("test"))
+    testImplementation("io.kotest:kotest-assertions-core:5.7.2")
 }
 
 tasks.assemble {
