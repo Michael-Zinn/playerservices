@@ -4,9 +4,12 @@ import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.configuration.ConfigurationSection
+import org.bukkit.configuration.serialization.ConfigurationSerializable
 import org.bukkit.configuration.serialization.ConfigurationSerialization
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
+import java.net.URL
+import java.util.*
 
 @Suppress("unused") // Instantiated by the server
 class PlayerServices : JavaPlugin() {
@@ -56,4 +59,22 @@ class PlayerServicesCommandExecutor(
 
     private fun handleUserCommandPrivacyMode(): Boolean = false
     private fun handleUserCommandSharingMode(): Boolean = false
+}
+
+class ServiceInfo(val ownerId: UUID, val url: URL) : ConfigurationSerializable {
+    override fun serialize() = mutableMapOf(
+        "ownerId" to ownerId.toString(),
+        "url" to url.toString()
+    )
+
+    override fun toString() = "RegisteredService(ownerId=$ownerId, url=$url)"
+
+    companion object {
+        @JvmStatic
+        @Suppress("unused") // Used by server
+        fun deserialize(args: Map<String, Any>) = ServiceInfo(
+            UUID.fromString(args["ownerId"] as String),
+            URL(args["url"] as String)
+        )
+    }
 }
