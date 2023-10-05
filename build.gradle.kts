@@ -17,6 +17,7 @@ dependencies {
     paperweight.paperDevBundle("1.20.1-R0.1-SNAPSHOT")
 
     testImplementation(kotlin("test"))
+    testImplementation("org.junit.jupiter:junit-jupiter-params:5.10.0")
     testImplementation("io.kotest:kotest-assertions-core:5.7.2")
     testImplementation("io.mockk:mockk:1.13.8")
 }

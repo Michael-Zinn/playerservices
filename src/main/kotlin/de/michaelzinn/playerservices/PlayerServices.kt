@@ -8,6 +8,7 @@ import org.bukkit.configuration.serialization.ConfigurationSerializable
 import org.bukkit.configuration.serialization.ConfigurationSerialization
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
+import java.net.MalformedURLException
 import java.net.URL
 import java.util.*
 
@@ -16,7 +17,7 @@ class PlayerServices : JavaPlugin() {
     private lateinit var delegate: PlayerServicesCommandExecutor
 
     override fun onLoad() {
-        ConfigurationSerialization.registerClass(ServiceInfo::class.java)
+        ConfigurationSerialization.registerClass(RegisteredService::class.java)
         saveDefaultConfig()
         val servicesConfigSection = config.getConfigurationSection("services") ?: config.createSection("services")
         saveConfig()
@@ -54,6 +55,16 @@ class PlayerServicesCommandExecutor(
     private fun handleAdminCommand(sender: Player, command: Command, args: Array<out String>?): Boolean {
         if (args == null || args.isEmpty())
             sender.sendPlainMessage("No subcommand given")
+        else if (args.size == 2 && args[0] == "register") {
+            try {
+                val serviceUrl = URL(args[1])
+                playerServicesConfig[sender.name] = RegisteredService(sender.uniqueId, serviceUrl)
+                parentPlugin.saveConfig()
+                return true
+            } catch (ex: MalformedURLException) {
+                sender.sendPlainMessage("Invalid service URL")
+            }
+        }
         return false
     }
 
@@ -61,7 +72,7 @@ class PlayerServicesCommandExecutor(
     private fun handleUserCommandSharingMode(): Boolean = false
 }
 
-class ServiceInfo(val ownerId: UUID, val url: URL) : ConfigurationSerializable {
+class RegisteredService(val ownerId: UUID, val url: URL) : ConfigurationSerializable {
     override fun serialize() = mutableMapOf(
         "ownerId" to ownerId.toString(),
         "url" to url.toString()
@@ -72,7 +83,7 @@ class ServiceInfo(val ownerId: UUID, val url: URL) : ConfigurationSerializable {
     companion object {
         @JvmStatic
         @Suppress("unused") // Used by server
-        fun deserialize(args: Map<String, Any>) = ServiceInfo(
+        fun deserialize(args: Map<String, Any>) = RegisteredService(
             UUID.fromString(args["ownerId"] as String),
             URL(args["url"] as String)
         )
