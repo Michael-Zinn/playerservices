@@ -72,7 +72,7 @@ class PlayerServicesCommandExecutor(
     private fun handleUserCommandSharingMode(): Boolean = false
 }
 
-class RegisteredService(val ownerId: UUID, val url: URL) : ConfigurationSerializable {
+data class RegisteredService(val ownerId: UUID, val url: URL) : ConfigurationSerializable {
     override fun serialize() = mutableMapOf(
         "ownerId" to ownerId.toString(),
         "url" to url.toString()
@@ -82,7 +82,7 @@ class RegisteredService(val ownerId: UUID, val url: URL) : ConfigurationSerializ
 
     companion object {
         @JvmStatic
-        @Suppress("unused") // Used by server
+        @Suppress("unused") // Called by the server for deserialization
         fun deserialize(args: Map<String, Any>) = RegisteredService(
             UUID.fromString(args["ownerId"] as String),
             URL(args["url"] as String)
