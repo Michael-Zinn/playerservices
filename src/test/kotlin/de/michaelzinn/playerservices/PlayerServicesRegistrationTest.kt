@@ -1,5 +1,6 @@
 package de.michaelzinn.playerservices
 
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.maps.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -15,7 +16,7 @@ import org.junit.jupiter.params.provider.ValueSource
 import java.net.URL
 import java.util.*
 
-class PlayerServicesCommandExecutorTest {
+class PlayerServicesRegistrationTest {
     private lateinit var commandExecutor: PlayerServicesCommandExecutor
 
     private lateinit var configurationSection: ConfigurationSection
@@ -47,9 +48,9 @@ class PlayerServicesCommandExecutorTest {
     fun `registers a player service`() {
         val notch = player("Notch")
 
-        val result = notch types "/ps register http://example.com/playerservice"
+        val isCommandSuccessful = notch types "/ps register http://example.com/playerservice"
 
-        result shouldBe true
+        isCommandSuccessful shouldBe true
         verifyOrder {
             configurationSection.set(any(), any())
             playerServices.saveConfig()
@@ -62,24 +63,50 @@ class PlayerServicesCommandExecutorTest {
         )
     }
 
+    @Test
+    fun `registers one service per player`() {
+        "Notch" types "/ps register http://example.com/notchplayerservice"
+        "Herobrine" types "/ps register http://example.com/herobrineplayerservice"
+
+        configurationSection.getKeys(true) shouldContainExactlyInAnyOrder setOf(
+            "Notch",
+            "Herobrine"
+        )
+    }
+
+    @Test
+    fun `re-registration overwrites previous service`() {
+        val notch = player("Notch")
+
+        notch types "/ps register http://example.com/v1/playerservice"
+        notch types "/ps register http://example.com/v2/playerservice"
+
+        configurationSection.getValues(false) shouldContainExactly mapOf(
+            "Notch" to RegisteredService(
+                notch.uniqueId,
+                URL("http://example.com/v2/playerservice")
+            )
+        )
+    }
+
     @ParameterizedTest
     @ValueSource(strings = ["", "0://example.com/", "://example.com/"])
     fun `rejects an invalid URL`(invalidUrl: String) {
-        val result = "Notch" types "/ps register $invalidUrl"
-        result shouldBe false
+        val isCommandSuccessful = "Notch" types "/ps register $invalidUrl"
+        isCommandSuccessful shouldBe false
         configurationSection.getValues(true) shouldHaveSize 0
     }
 
     @Test
     fun `rejects empty admin command`() {
-        val result = "Notch" types ""
-        result shouldBe false
+        val isCommandSuccessful = "Notch" types ""
+        isCommandSuccessful shouldBe false
     }
 
     @Test
     fun `rejects an unknown admin command`() {
-        val result = "Notch" types "/ps pspsps"
-        result shouldBe false
+        val isCommandSuccessful = "Notch" types "/ps pspsps"
+        isCommandSuccessful shouldBe false
     }
 
     private infix fun String.types(input: String) = player(this@types) types input
