@@ -11,12 +11,12 @@ commands:
     permission: playerservices.admin
     permission-message: You do not have permission to administrate player services.
   p:
-    aliases: h
     description: Use a player's service in privacy mode (only sends player name, id, command and parameters to the service).
     usage: /<command> [player] parameters
     permission: playerservices.user
     permission-message: You do not have permission to use player services.
   s:
+    aliases: h
     description: Use a player's service service in sharing mode (sends data of privacy mode plus player coordinates, dimension, yaw and pitch).
     usage: /<command> [player] parameters
     permission: playerservices.user
