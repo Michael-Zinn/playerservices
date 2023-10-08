@@ -81,7 +81,7 @@ class PlayerServicesUnregistrationTest {
     private fun player(name: String): Player = mockk {
         every { getName() } returns name
         every { uniqueId } returns UUID.randomUUID()
-        every { sendPlainMessage(any()) } just runs
+        every { sendRichMessage(any()) } just runs
     }
 
     private infix fun Player.types(input: String): Boolean {

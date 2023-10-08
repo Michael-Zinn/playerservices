@@ -54,11 +54,12 @@ class PlayerServicesCommandExecutor(
 
     private fun handleAdminCommand(sender: Player, command: Command, args: Array<out String>?): Boolean {
         if (args == null || args.isEmpty())
-            sender.sendPlainMessage("No subcommand given")
+            sender.sendErrorMessage("No subcommand given")
         else if (args.size == 1 && args[0] == "unregister") {
             if (playerServicesConfig.contains(sender.name)) {
                 playerServicesConfig[sender.name] = null
                 parentPlugin.saveConfig()
+                sender.sendUnregistrationMessage()
                 return true
             }
         } else if (args.size == 2 && args[0] == "register") {
@@ -66,9 +67,10 @@ class PlayerServicesCommandExecutor(
                 val serviceUrl = URL(args[1])
                 playerServicesConfig[sender.name] = RegisteredService(sender.uniqueId, serviceUrl)
                 parentPlugin.saveConfig()
+                sender.sendRegistrationMessage(serviceUrl)
                 return true
             } catch (ex: MalformedURLException) {
-                sender.sendPlainMessage("Invalid service URL")
+                sender.sendErrorMessage("Invalid URL: ${args[1]}")
             }
         }
         return false
@@ -95,3 +97,10 @@ data class RegisteredService(val ownerId: UUID, val url: URL) : ConfigurationSer
         )
     }
 }
+
+fun Player.sendRegistrationMessage(playerServiceUrl: URL) =
+    this.sendRichMessage("<green>Service registered for</green> $name <green>at</green> $playerServiceUrl")
+
+fun Player.sendUnregistrationMessage() = this.sendRichMessage("<green>Service unregistered for</green> $name")
+
+fun Player.sendErrorMessage(message: String) = this.sendRichMessage("<red>Error:</red> $message")
