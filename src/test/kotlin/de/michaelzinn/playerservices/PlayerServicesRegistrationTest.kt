@@ -43,12 +43,16 @@ class PlayerServicesRegistrationTest {
         commandExecutor = PlayerServicesCommandExecutor(configurationSection, playerServices)
     }
 
-    // TODO: Register an IP address
-    @Test
-    fun `registers a player service`() {
+    @ParameterizedTest
+    @ValueSource(strings = [
+        "http://example.com/playerservice",
+        "http://127.0.0.1/playerservice",
+        "http://[2001:0db8:85a3:0000:0000:8a2e:0370:7334]/playerservice",
+        "http://[::1]/playerservice"])
+    fun `registers a player service`(validUrl: String) {
         val notch = player("Notch")
 
-        val isCommandSuccessful = notch types "/ps register http://example.com/playerservice"
+        val isCommandSuccessful = notch types "/ps register $validUrl"
 
         isCommandSuccessful shouldBe true
         verifyOrder {
@@ -58,7 +62,7 @@ class PlayerServicesRegistrationTest {
         configurationSection.getValues(false) shouldContainExactly mapOf(
             "Notch" to RegisteredService(
                 notch.uniqueId,
-                URL("http://example.com/playerservice")
+                URL(validUrl)
             )
         )
     }
@@ -90,7 +94,11 @@ class PlayerServicesRegistrationTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["", "0://example.com/", "://example.com/"])
+    @ValueSource(strings = [
+        "",
+        "0://example.com/",
+        "://example.com/",
+        "http://[:::1]/playerservice"])
     fun `rejects an invalid URL`(invalidUrl: String) {
         val isCommandSuccessful = "Notch" types "/ps register $invalidUrl"
         isCommandSuccessful shouldBe false
