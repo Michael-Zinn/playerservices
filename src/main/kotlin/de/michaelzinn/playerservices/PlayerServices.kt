@@ -55,7 +55,13 @@ class PlayerServicesCommandExecutor(
     private fun handleAdminCommand(sender: Player, command: Command, args: Array<out String>?): Boolean {
         if (args == null || args.isEmpty())
             sender.sendPlainMessage("No subcommand given")
-        else if (args.size == 2 && args[0] == "register") {
+        else if (args.size == 1 && args[0] == "unregister") {
+            if (playerServicesConfig.contains(sender.name)) {
+                playerServicesConfig[sender.name] = null
+                parentPlugin.saveConfig()
+                return true
+            }
+        } else if (args.size == 2 && args[0] == "register") {
             try {
                 val serviceUrl = URL(args[1])
                 playerServicesConfig[sender.name] = RegisteredService(sender.uniqueId, serviceUrl)
