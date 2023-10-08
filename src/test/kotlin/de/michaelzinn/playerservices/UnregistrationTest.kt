@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test
 import java.net.URL
 import java.util.*
 
-class PlayerServicesUnregistrationTest {
+class UnregistrationTest {
     private lateinit var commandExecutor: PlayerServicesCommandExecutor
 
     private lateinit var configurationSection: ConfigurationSection

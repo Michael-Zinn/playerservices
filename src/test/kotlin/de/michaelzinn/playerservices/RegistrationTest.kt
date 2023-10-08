@@ -16,7 +16,7 @@ import org.junit.jupiter.params.provider.ValueSource
 import java.net.URL
 import java.util.*
 
-class PlayerServicesRegistrationTest {
+class RegistrationTest {
     private lateinit var commandExecutor: PlayerServicesCommandExecutor
 
     private lateinit var configurationSection: ConfigurationSection
