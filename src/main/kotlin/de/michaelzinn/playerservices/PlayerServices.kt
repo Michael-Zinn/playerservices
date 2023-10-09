@@ -70,23 +70,34 @@ class PlayerServicesCommandExecutor(
     private fun unregister(sender: Player): Boolean {
         if (!playerServicesConfig.contains(sender.name))
             return false
+        if (hasDifferentPlayerUuid(sender))
+            return false
         playerServicesConfig[sender.name] = null
         parentPlugin.saveConfig()
         sender.sendUnregistrationMessage()
         return true
     }
 
-    private fun register(sender: Player, serviceUrl: String): Boolean =
+    private fun register(sender: Player, serviceUrl: String): Boolean {
         try {
+            if (hasDifferentPlayerUuid(sender))
+                return false
             val newService = RegisteredService(sender.uniqueId, URL(serviceUrl))
             playerServicesConfig[sender.name] = newService
             parentPlugin.saveConfig()
             sender.sendRegistrationMessage(newService.url)
-            true
+            return true
         } catch (ex: MalformedURLException) {
             sender.sendErrorMessage("Invalid URL: $serviceUrl")
-            false
+            return false
         }
+    }
+
+    private fun hasDifferentPlayerUuid(sender: Player): Boolean {
+        val currentOwnerId = playerServicesConfig.getObject(sender.name, RegisteredService::class.java)?.ownerId
+        val hasPlayerUuidChanged = currentOwnerId?.let { it != sender.uniqueId }
+        return hasPlayerUuidChanged ?: false
+    }
 }
 
 data class RegisteredService(val ownerId: UUID, val url: URL) : ConfigurationSerializable {
