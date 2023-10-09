@@ -51,33 +51,42 @@ class PlayerServicesCommandExecutor(
         }
     }
 
-
-    private fun handleAdminCommand(sender: Player, command: Command, args: Array<out String>?): Boolean {
-        if (args == null || args.isEmpty())
-            sender.sendErrorMessage("No subcommand given")
-        else if (args.size == 1 && args[0] == "unregister") {
-            if (playerServicesConfig.contains(sender.name)) {
-                playerServicesConfig[sender.name] = null
-                parentPlugin.saveConfig()
-                sender.sendUnregistrationMessage()
-                return true
-            }
-        } else if (args.size == 2 && args[0] == "register") {
-            try {
-                val serviceUrl = URL(args[1])
-                playerServicesConfig[sender.name] = RegisteredService(sender.uniqueId, serviceUrl)
-                parentPlugin.saveConfig()
-                sender.sendRegistrationMessage(serviceUrl)
-                return true
-            } catch (ex: MalformedURLException) {
-                sender.sendErrorMessage("Invalid URL: ${args[1]}")
-            }
+    private fun handleAdminCommand(sender: Player, command: Command, args: Array<out String>?): Boolean =
+        when {
+            args.isNullOrEmpty() -> rejectEmptyCommand(sender)
+            args.size == 1 && args[0] == "unregister" -> unregister(sender)
+            args.size == 2 && args[0] == "register" -> register(sender, args[1])
+            else -> false
         }
-        return false
-    }
 
     private fun handleUserCommandPrivacyMode(): Boolean = false
     private fun handleUserCommandSharingMode(): Boolean = false
+
+    private fun rejectEmptyCommand(sender: Player): Boolean {
+        sender.sendErrorMessage("No subcommand given")
+        return false
+    }
+
+    private fun unregister(sender: Player): Boolean {
+        if (!playerServicesConfig.contains(sender.name))
+            return false
+        playerServicesConfig[sender.name] = null
+        parentPlugin.saveConfig()
+        sender.sendUnregistrationMessage()
+        return true
+    }
+
+    private fun register(sender: Player, serviceUrl: String): Boolean =
+        try {
+            val newService = RegisteredService(sender.uniqueId, URL(serviceUrl))
+            playerServicesConfig[sender.name] = newService
+            parentPlugin.saveConfig()
+            sender.sendRegistrationMessage(newService.url)
+            true
+        } catch (ex: MalformedURLException) {
+            sender.sendErrorMessage("Invalid URL: $serviceUrl")
+            false
+        }
 }
 
 data class RegisteredService(val ownerId: UUID, val url: URL) : ConfigurationSerializable {
