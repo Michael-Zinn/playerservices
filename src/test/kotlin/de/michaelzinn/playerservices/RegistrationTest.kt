@@ -4,7 +4,8 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.maps.shouldHaveSize
 import io.kotest.matchers.shouldBe
-import io.mockk.verifyOrder
+import io.mockk.*
+import org.bukkit.craftbukkit.v1_20_R1.command.CraftConsoleCommandSender
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -88,6 +89,18 @@ class RegistrationTest : MockedPluginTest() {
     @Test
     fun `rejects an unknown admin command`() {
         val isCommandSuccessful = "Notch" types "/ps pspsps"
+        isCommandSuccessful shouldBe false
+    }
+
+    @Test
+    fun `rejects non-players`() {
+        val serverConsole = mockk<CraftConsoleCommandSender> {
+            every { name } returns "CONSOLE"
+            every { sendPlainMessage(any()) } just runs
+        }
+
+        val isCommandSuccessful = serverConsole types "/ps register http://example.com/playerservice"
+
         isCommandSuccessful shouldBe false
     }
 }

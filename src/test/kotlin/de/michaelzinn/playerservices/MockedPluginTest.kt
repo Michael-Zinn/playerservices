@@ -57,7 +57,7 @@ open class MockedPluginTest {
 
     protected infix fun String.types(input: String) = player(this@types) types input
 
-    protected infix fun Player.types(input: String): Boolean {
+    protected infix fun CommandSender.types(input: String): Boolean {
         val (command, args) = splitIntoCommandAndArgs(input)
 
         val pluginCommand: PluginCommand = mockk {
