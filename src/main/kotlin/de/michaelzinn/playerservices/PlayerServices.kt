@@ -33,9 +33,8 @@ class PlayerServices : JavaPlugin() {
     ): MutableList<String>? =
         delegate.onTabCompete(sender, command, args)
 
-    override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>?): Boolean {
-        return delegate.onCommand(sender, command, label, args)
-    }
+    override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>?): Boolean =
+        delegate.onCommand(sender, command, label, args)
 }
 
 
@@ -46,8 +45,8 @@ class PlayerServicesCommandExecutor(
     fun onTabCompete(sender: CommandSender, command: Command, args: Array<out String>?): MutableList<String>? {
         if (sender !is Player) return null
 
-        val tabCompleteFirstArgument = args?.size == 1
-        if (!tabCompleteFirstArgument) return null
+        val tabCompletingSubcommandOrPlayerName = args?.size == 1
+        if (!tabCompletingSubcommandOrPlayerName) return null
 
         return when (command.name) {
             "ps" -> mutableListOf(if (playerServicesConfig.contains(sender.name)) "unregister" else "register")
@@ -88,10 +87,9 @@ class PlayerServicesCommandExecutor(
     }
 
     private fun unregister(sender: Player): Boolean {
-        if (!playerServicesConfig.contains(sender.name))
-            return false
-        if (hasDifferentPlayerUuid(sender))
-            return false
+        if (!playerServicesConfig.contains(sender.name)) return false
+        if (hasDifferentPlayerUuid(sender)) return false
+
         playerServicesConfig[sender.name] = null
         parentPlugin.saveConfig()
         sender.sendUnregistrationMessage()
@@ -100,8 +98,8 @@ class PlayerServicesCommandExecutor(
 
     private fun register(sender: Player, serviceUrl: String): Boolean {
         try {
-            if (hasDifferentPlayerUuid(sender))
-                return false
+            if (hasDifferentPlayerUuid(sender)) return false
+
             val newService = RegisteredService(sender.uniqueId, URL(serviceUrl))
             playerServicesConfig[sender.name] = newService
             parentPlugin.saveConfig()
