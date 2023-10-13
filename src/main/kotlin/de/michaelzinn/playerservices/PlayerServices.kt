@@ -25,6 +25,14 @@ class PlayerServices : JavaPlugin() {
         delegate = PlayerServicesCommandExecutor(servicesConfigSection, this)
     }
 
+    override fun onTabComplete(
+        sender: CommandSender,
+        command: Command,
+        alias: String,
+        args: Array<out String>?
+    ): MutableList<String>? =
+        delegate.onTabCompete(sender, command, args)
+
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>?): Boolean {
         return delegate.onCommand(sender, command, label, args)
     }
@@ -35,6 +43,18 @@ class PlayerServicesCommandExecutor(
     private val playerServicesConfig: ConfigurationSection,
     private val parentPlugin: JavaPlugin
 ) : CommandExecutor {
+    fun onTabCompete(sender: CommandSender, command: Command, args: Array<out String>?): MutableList<String>? {
+        if (sender !is Player) return null
+
+        val tabCompleteFirstArgument = args?.size == 1
+        if (!tabCompleteFirstArgument) return null
+
+        return when (command.name) {
+            "ps" -> mutableListOf(if (playerServicesConfig.contains(sender.name)) "unregister" else "register")
+            else -> null
+        }
+    }
+
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>?): Boolean {
         parentPlugin.logger.info("Command $label (alias for ${command.name}) requested on ${parentPlugin.server.name}, ${parentPlugin.server.ip}, ${parentPlugin.server.port} by ${sender.name}")
 

@@ -1,6 +1,7 @@
 package de.michaelzinn.playerservices
 
 import io.mockk.*
+import org.bukkit.command.CommandSender
 import org.bukkit.command.PluginCommand
 import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.MemoryConfiguration
@@ -42,7 +43,29 @@ open class MockedPluginTest {
         }
     }
 
+    protected infix fun String.startsTyping(input: String) = player(this@startsTyping) startsTyping input
+
+    protected infix fun CommandSender.startsTyping(input: String): MutableList<String>? {
+        val (command, args) = splitIntoCommandAndArgs(input)
+
+        val pluginCommand: PluginCommand = mockk {
+            every { name } returns command
+        }
+
+        return commandExecutor.onTabCompete(this@startsTyping, pluginCommand, args)
+    }
+
     protected infix fun String.types(input: String) = player(this@types) types input
+
+    protected infix fun Player.types(input: String): Boolean {
+        val (command, args) = splitIntoCommandAndArgs(input)
+
+        val pluginCommand: PluginCommand = mockk {
+            every { name } returns command
+        }
+
+        return commandExecutor.onCommand(this@types, pluginCommand, input, args)
+    }
 
     protected fun player(name: String, uniqueId: UUID = UUID.randomUUID()): Player = mockk {
         every { getName() } returns name
@@ -50,15 +73,10 @@ open class MockedPluginTest {
         every { sendRichMessage(any()) } just runs
     }
 
-    protected infix fun Player.types(input: String): Boolean {
+    private fun splitIntoCommandAndArgs(input: String): Pair<String, Array<String>> {
         val inputParts = input.removePrefix("/").split(" ")
         val command = inputParts.first()
         val args = inputParts.drop(1).toTypedArray()
-
-        val pluginCommand: PluginCommand = mockk {
-            every { name } returns command
-        }
-
-        return commandExecutor.onCommand(this@types, pluginCommand, input, args)
+        return Pair(command, args)
     }
 }
