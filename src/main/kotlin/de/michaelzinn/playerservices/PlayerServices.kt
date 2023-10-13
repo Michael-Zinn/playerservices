@@ -45,21 +45,26 @@ class PlayerServicesCommandExecutor(
     fun onTabCompete(sender: CommandSender, command: Command, args: Array<out String>?): MutableList<String>? {
         if (sender !is Player) return null
 
-        val tabCompletingSubcommandOrPlayerName = args?.size == 1
-        if (!tabCompletingSubcommandOrPlayerName) return null
+        val tabCompletingSubcommandOrOwnerName = args?.size == 1
+        if (!tabCompletingSubcommandOrOwnerName) return null
 
         val searchedOwnerName: String = args?.firstOrNull() ?: ""
 
         return when (command.name) {
-            "ps" -> mutableListOf(if (playerServicesConfig.contains(sender.name)) "unregister" else "register")
-            "p", "s" -> playerServicesConfig.getKeys(false)
-                .filter { it.startsWith(searchedOwnerName, ignoreCase = true) }
-                .take(10)
-                .toMutableList()
-
+            "ps" -> completeSubcommand(sender.name)
+            "p", "s" -> completeServiceOwnerNames(searchedOwnerName)
             else -> null
         }
     }
+
+    private fun completeSubcommand(senderName: String) =
+        mutableListOf(if (playerServicesConfig.contains(senderName)) "unregister" else "register")
+
+    private fun completeServiceOwnerNames(searchedOwnerName: String) =
+        playerServicesConfig.getKeys(false)
+        .filter { it.startsWith(searchedOwnerName, ignoreCase = true) }
+        .take(10)
+        .toMutableList()
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>?): Boolean {
         parentPlugin.logger.info("Command $label (alias for ${command.name}) requested on ${parentPlugin.server.name}, ${parentPlugin.server.ip}, ${parentPlugin.server.port} by ${sender.name}")
