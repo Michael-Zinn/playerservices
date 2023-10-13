@@ -48,8 +48,15 @@ class PlayerServicesCommandExecutor(
         val tabCompletingSubcommandOrPlayerName = args?.size == 1
         if (!tabCompletingSubcommandOrPlayerName) return null
 
+        val searchedOwnerName: String = args?.firstOrNull() ?: ""
+
         return when (command.name) {
             "ps" -> mutableListOf(if (playerServicesConfig.contains(sender.name)) "unregister" else "register")
+            "p", "s" -> playerServicesConfig.getKeys(false)
+                .filter { it.startsWith(searchedOwnerName, ignoreCase = true) }
+                .take(10)
+                .toMutableList()
+
             else -> null
         }
     }
