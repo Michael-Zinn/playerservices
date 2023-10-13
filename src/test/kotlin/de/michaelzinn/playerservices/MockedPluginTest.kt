@@ -70,6 +70,7 @@ open class MockedPluginTest {
     protected fun player(name: String, uniqueId: UUID = UUID.randomUUID()): Player = mockk {
         every { getName() } returns name
         every { getUniqueId() } returns uniqueId
+        every { sendPlainMessage(any()) } just runs
         every { sendRichMessage(any()) } just runs
     }
 

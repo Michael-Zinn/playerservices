@@ -64,8 +64,8 @@ class PlayerServicesCommandExecutor(
 
         return when (command.name) {
             "ps" -> handleAdminCommand(sender, command, args)
-            "p" -> handleUserCommandPrivacyMode()
-            "s" -> handleUserCommandSharingMode()
+            "p" -> handleUserCommandPrivacyMode(sender, args)
+            "s" -> handleUserCommandSharingMode(sender, args)
             else -> false
         }
     }
@@ -78,8 +78,24 @@ class PlayerServicesCommandExecutor(
             else -> false
         }
 
-    private fun handleUserCommandPrivacyMode(): Boolean = false
-    private fun handleUserCommandSharingMode(): Boolean = false
+    private fun handleUserCommandPrivacyMode(sender: Player, args: Array<out String>?): Boolean {
+        if (args.isNullOrEmpty()) return false
+
+        val serviceOwner = args[0]
+        val service = playerServicesConfig.getObject(serviceOwner, RegisteredService::class.java)
+        if (service == null) {
+            sender.sendErrorMessage("No service registered for player $serviceOwner")
+            return false
+        }
+
+        val providedArgs = args.drop(1)
+        sender.sendPlainMessage("Calling player service ${service.url} with arguments: ${providedArgs.joinToString()}")
+        return true
+    }
+
+    private fun handleUserCommandSharingMode(sender: Player, args: Array<out String>?): Boolean {
+        return handleUserCommandPrivacyMode(sender, args)
+    }
 
     private fun rejectEmptyCommand(sender: Player): Boolean {
         sender.sendErrorMessage("No subcommand given")
