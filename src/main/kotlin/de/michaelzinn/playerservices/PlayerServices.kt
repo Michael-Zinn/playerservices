@@ -52,7 +52,7 @@ class PlayerServicesCommandExecutor(
 
         return when (command.name) {
             "ps" -> completeSubcommand(sender.name)
-            "p", "s" -> completeServiceOwnerNames(searchedOwnerName)
+            "p", "s" -> completeServiceOwnerNames(searchedOwnerName).toMutableList()
             else -> null
         }
     }
@@ -62,9 +62,8 @@ class PlayerServicesCommandExecutor(
 
     private fun completeServiceOwnerNames(searchedOwnerName: String) =
         playerServicesConfig.getKeys(false)
-        .filter { it.startsWith(searchedOwnerName, ignoreCase = true) }
-        .take(10)
-        .toMutableList()
+            .filter { it.startsWith(searchedOwnerName, ignoreCase = true) }
+            .take(10)
 
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>?): Boolean {
         parentPlugin.logger.info("Command $label (alias for ${command.name}) requested on ${parentPlugin.server.name}, ${parentPlugin.server.ip}, ${parentPlugin.server.port} by ${sender.name}")
@@ -93,16 +92,29 @@ class PlayerServicesCommandExecutor(
     private fun handleUserCommandPrivacyMode(sender: Player, args: Array<out String>?): Boolean {
         if (args.isNullOrEmpty()) return false
 
-        val serviceOwner = args[0]
-        val service = playerServicesConfig.getObject(serviceOwner, RegisteredService::class.java)
-        if (service == null) {
-            sender.sendErrorMessage("No service registered for player $serviceOwner")
-            return false
-        }
+        val searchedServiceOwner = args[0]
+        val service = searchServiceByOwner(searchedServiceOwner, sender) ?: return false
 
         val providedArgs = args.drop(1)
         sender.sendPlainMessage("Calling player service ${service.url} with arguments: ${providedArgs.joinToString()}")
         return true
+    }
+
+    private fun searchServiceByOwner(searchedServiceOwner: String, sender: Player): RegisteredService? {
+        val exactMatch = playerServicesConfig.getObject(searchedServiceOwner, RegisteredService::class.java)
+        if (exactMatch != null) return exactMatch
+
+        val partialMatches = completeServiceOwnerNames(searchedServiceOwner)
+        if (partialMatches.isEmpty()) {
+            sender.sendErrorMessage("No service registered for player $searchedServiceOwner")
+            return null
+        }
+        if (partialMatches.size > 1) {
+            sender.sendErrorMessage("Player name $searchedServiceOwner is ambiguous, first ${partialMatches.size} candidates: ${partialMatches.joinToString()}")
+            return null
+        }
+
+        return playerServicesConfig.getObject(partialMatches.first(), RegisteredService::class.java)!!
     }
 
     private fun handleUserCommandSharingMode(sender: Player, args: Array<out String>?): Boolean {

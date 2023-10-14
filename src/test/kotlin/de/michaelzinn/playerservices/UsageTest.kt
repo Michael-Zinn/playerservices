@@ -24,6 +24,43 @@ class UsageTest : MockedPluginTest() {
 
     @ParameterizedTest
     @ValueSource(strings = ["/p", "/s"])
+    fun `calls service when partial owner name given`(command: String) {
+        givenRegisteredPlayerServices(player("Herobrine") to "http://example.com/playerservice")
+
+        val isCommandSuccessful = "Notch" types "$command hero"
+
+        isCommandSuccessful shouldBe true
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["/p", "/s"])
+    fun `exact owner name match wins over partial match`(command: String) {
+        givenRegisteredPlayerServices(
+            player("Player") to "http://example.com/playerservice",
+            player("PlayerWithSuffix") to "http://example.com/otherservice"
+        )
+
+        val isCommandSuccessful = "Notch" types "$command Player"
+
+        isCommandSuccessful shouldBe true
+        // TODO: When a real HTTP client is used, verify service of "Player" was called
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["/p", "/s"])
+    fun `rejects ambiguous partial owner name`(command: String) {
+        givenRegisteredPlayerServices(
+            player("Player1") to "http://example.com/player1service",
+            player("player2") to "http://example.com/player2service"
+        )
+
+        val isCommandSuccessful = "Notch" types "$command p"
+
+        isCommandSuccessful shouldBe false
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["/p", "/s"])
     fun `ignores non-existing service`(command: String) {
         val isCommandSuccessful = "Notch" types "$command Herobrine"
         isCommandSuccessful shouldBe false
