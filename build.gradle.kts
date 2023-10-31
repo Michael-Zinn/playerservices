@@ -1,6 +1,6 @@
 plugins {
-    kotlin("jvm") version "1.9.0"
-    id("io.papermc.paperweight.userdev") version "1.5.8" // the latest version can be found on the Gradle Plugin Portal
+    kotlin("jvm") version "1.9.20"
+    id("io.papermc.paperweight.userdev") version "1.5.9" // the latest version can be found on the Gradle Plugin Portal
     id("com.github.johnrengelman.shadow") version "8.1.1"
     id("com.github.ben-manes.versions") version "0.49.0"
     id("se.ascp.gradle.gradle-versions-filter") version "0.1.16"
