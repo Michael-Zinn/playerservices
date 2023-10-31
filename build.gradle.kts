@@ -3,6 +3,7 @@ plugins {
     id("io.papermc.paperweight.userdev") version "1.5.8" // the latest version can be found on the Gradle Plugin Portal
     id("com.github.johnrengelman.shadow") version "8.1.1"
     id("com.github.ben-manes.versions") version "0.49.0"
+    id("se.ascp.gradle.gradle-versions-filter") version "0.1.16"
 }
 
 group = "de.michaelzinn.playerservices"
