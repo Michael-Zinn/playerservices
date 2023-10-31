@@ -19,13 +19,13 @@ class TabCompletionTest : MockedPluginTest() {
     }
 
     @Test
-    fun `suggests subcommand 'unregister' when registered`() {
+    fun `suggests subcommands 'register' and 'unregister' when registered`() {
         val notch = player("Notch")
         givenRegisteredPlayerServices(notch to "http://example.com/playerservice")
 
         val suggestions = notch startsTyping "/ps "
 
-        suggestions shouldContainExactly listOf("unregister")
+        suggestions shouldContainExactlyInAnyOrder listOf("register", "unregister")
     }
 
     @Test

@@ -58,7 +58,8 @@ class PlayerServicesCommandExecutor(
     }
 
     private fun completeSubcommand(senderName: String) =
-        mutableListOf(if (playerServicesConfig.contains(senderName)) "unregister" else "register")
+        if (playerServicesConfig.contains(senderName)) mutableListOf("register", "unregister")
+        else mutableListOf("register")
 
     private fun completeServiceOwnerNames(searchedOwnerName: String) =
         playerServicesConfig.getKeys(false)
