@@ -74,14 +74,14 @@ class PlayerServicesCommandExecutor(
         }
 
         return when (command.name) {
-            "ps" -> handleAdminCommand(sender, command, args)
+            "ps" -> handleRegistrationCommand(sender, command, args)
             "p" -> handleUserCommandPrivacyMode(sender, args)
             "s" -> handleUserCommandSharingMode(sender, args)
             else -> false
         }
     }
 
-    private fun handleAdminCommand(sender: Player, command: Command, args: Array<out String>?): Boolean =
+    private fun handleRegistrationCommand(sender: Player, command: Command, args: Array<out String>?): Boolean =
         when {
             args.isNullOrEmpty() -> rejectEmptyCommand(sender)
             args.size == 1 && args[0] == "unregister" -> unregister(sender)
