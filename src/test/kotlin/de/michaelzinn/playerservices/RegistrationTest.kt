@@ -81,13 +81,13 @@ class RegistrationTest : MockedPluginTest() {
     }
 
     @Test
-    fun `rejects empty admin command`() {
+    fun `rejects empty registration command`() {
         val isCommandSuccessful = "Notch" types "/ps"
         isCommandSuccessful shouldBe false
     }
 
     @Test
-    fun `rejects an unknown admin command`() {
+    fun `rejects an unknown registration command`() {
         val isCommandSuccessful = "Notch" types "/ps pspsps"
         isCommandSuccessful shouldBe false
     }
