@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "1.9.0"
+    kotlin("plugin.serialization") version "1.9.23"
     id("io.papermc.paperweight.userdev") version "1.5.6" // the latest version can be found on the Gradle Plugin Portal
     id("com.github.johnrengelman.shadow") version "8.1.1"
     id("com.github.ben-manes.versions") version "0.48.0"
@@ -15,6 +16,9 @@ repositories {
 
 dependencies {
     paperweight.paperDevBundle("1.20.1-R0.1-SNAPSHOT")
+
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
     testImplementation(kotlin("test"))
     testImplementation("io.kotest:kotest-assertions-core:5.7.2")

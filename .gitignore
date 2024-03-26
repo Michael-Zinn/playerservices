@@ -30,5 +30,8 @@ bin/
 .gradle/
 build/
 
+### Developer ###
+justfile
+
 ### Mac OS ###
 .DS_Store
