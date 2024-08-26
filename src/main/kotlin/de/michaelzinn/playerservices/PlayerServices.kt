@@ -1,5 +1,10 @@
 package de.michaelzinn.playerservices
 
+import com.github.michaelbull.result.binding
+import com.github.michaelbull.result.fold
+import com.github.michaelbull.result.getOrElse
+import com.github.michaelbull.result.runCatching
+import de.michaelzinn.playerservices.net.*
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
@@ -22,7 +27,11 @@ class PlayerServices : JavaPlugin() {
         val servicesConfigSection = config.getConfigurationSection("services") ?: config.createSection("services")
         saveConfig()
 
-        delegate = PlayerServicesCommandExecutor(servicesConfigSection, this)
+        delegate = PlayerServicesCommandExecutor(
+            parentPlugin = this,
+            playerServicesConfig = servicesConfigSection,
+            client = PlayerServiceClient()
+        )
     }
 
     override fun onTabComplete(
@@ -39,8 +48,9 @@ class PlayerServices : JavaPlugin() {
 
 
 class PlayerServicesCommandExecutor(
+    private val parentPlugin: JavaPlugin,
     private val playerServicesConfig: ConfigurationSection,
-    private val parentPlugin: JavaPlugin
+    private val client: PlayerServiceClient,
 ) : CommandExecutor {
     fun onTabCompete(sender: CommandSender, command: Command, args: Array<out String>?): MutableList<String>? {
         if (sender !is Player) return null
@@ -58,8 +68,10 @@ class PlayerServicesCommandExecutor(
     }
 
     private fun completeSubcommand(senderName: String) =
-        if (playerServicesConfig.contains(senderName)) mutableListOf("register", "unregister")
-        else mutableListOf("register")
+        if (playerServicesConfig.contains(senderName))
+            mutableListOf("register", "unregister")
+        else
+            mutableListOf("register")
 
     private fun completeServiceOwnerNames(searchedOwnerName: String) =
         playerServicesConfig.getKeys(false)
@@ -90,14 +102,15 @@ class PlayerServicesCommandExecutor(
             else -> false
         }
 
-    private fun handleUserCommandPrivacyMode(sender: Player, args: Array<out String>?): Boolean {
+    private fun handleUserCommandPrivacyMode(player: Player, args: Array<out String>?): Boolean {
         if (args.isNullOrEmpty()) return false
 
         val searchedServiceOwner = args[0]
-        val service = searchServiceByOwner(searchedServiceOwner, sender) ?: return false
+        val service = searchServiceByOwner(searchedServiceOwner, player) ?: return false
 
         val providedArgs = args.drop(1)
-        sender.sendPlainMessage("Calling player service ${service.url} with arguments: ${providedArgs.joinToString()}")
+
+        player.sendPlainMessage("(NOT IMPLEMENTED) Calling player service ${service.url} with arguments: ${providedArgs.joinToString()}")
         return true
     }
 
@@ -118,8 +131,48 @@ class PlayerServicesCommandExecutor(
         return playerServicesConfig.getObject(partialMatches.first(), RegisteredService::class.java)!!
     }
 
-    private fun handleUserCommandSharingMode(sender: Player, args: Array<out String>?): Boolean {
-        return handleUserCommandPrivacyMode(sender, args)
+    private fun handleUserCommandSharingMode(player: Player, args: Array<out String>?): Boolean {
+        if (args.isNullOrEmpty()) return false
+
+        val searchedServiceOwner = args[0]
+        val service = searchServiceByOwner(searchedServiceOwner, player) ?: return false
+
+        val serviceArgs = args.drop(1)
+
+        val requestBody = PlayerServiceRequestBody(
+            server = ServerInfo(
+                mcServerName = parentPlugin.server.name,
+                mcServerIp = parentPlugin.server.ip,
+            ),
+            player = PlayerInfo(
+                name = player.name,
+                // displayName = player.displayName().toString(),
+                uuid = player.identity().uuid().toString(),
+                location = PlayerLocationInfo(
+                    worldName = player.world.name, // usually world, world_nether ?
+
+                    x = player.x,
+                    y = player.y,
+                    z = player.z,
+
+                    //blockX = player.location.blockX,
+                    //blockY = player.location.blockY,
+                    //blockZ = player.location.blockZ,
+
+                    pitch = player.pitch,
+                    yaw = player.yaw,
+                )
+            ),
+            message = serviceArgs.joinToString(" ") ?: ""
+        )
+
+        client.sharingRequest(service.url, requestBody).fold(
+            success = { player.sendPlainMessage(it); true },
+            failure = { player.sendErrorMessage(it.message); false }
+        )
+
+        return true // for tests TODO fix
+        //player.sendPlainMessage("(NOT IMPLEMENTED) Calling player service ${service.url} with arguments: ${providedArgs.joinToString()}")
     }
 
     private fun rejectEmptyCommand(sender: Player): Boolean {
@@ -137,23 +190,45 @@ class PlayerServicesCommandExecutor(
         return true
     }
 
-    private fun register(sender: Player, serviceUrl: String): Boolean {
-        try {
-            if (hasDifferentPlayerUuid(sender)) return false
+    private fun register(player: Player, serviceUrl: String) = binding {
+        val url = runCatching<URL> { URL(serviceUrl) }.bind()
 
-            val newService = RegisteredService(sender.uniqueId, URL(serviceUrl))
-            playerServicesConfig[sender.name] = newService
-            parentPlugin.saveConfig()
-            sender.sendRegistrationMessage(newService.url)
-            return true
-        } catch (ex: MalformedURLException) {
-            sender.sendErrorMessage("Invalid URL: $serviceUrl")
-            return false
-        }
+        // Can't register if you squatted the player name from someone else.
+        // This could happen if the original player changed their username.
+        if (hasDifferentPlayerUuid(player)) return@binding false
+
+        client.register(
+            PlayerServiceRegistrationRequestBody(
+                mcServerName = player.server.name,
+                mcServerIp = player.server.ip,
+                playerName = player.name,
+                playerUuid = player.identity().uuid().toString(),
+                serviceUrl = serviceUrl,
+            )
+        ).bind()
+
+        val newService = RegisteredService(player.uniqueId, url)
+        playerServicesConfig[player.name] = newService
+        parentPlugin.saveConfig()
+        player.sendRegistrationMessage(newService.url)
+        return@binding true
+    }.getOrElse { err -> //} catch (ex: MalformedURLException) {
+        player.sendErrorMessage(
+            when (err) {
+                is PlayerServiceClient.RegistrationError -> err.message
+                is MalformedURLException -> "Invalid URL: $serviceUrl"
+                else -> "Impossible error $err"
+            }
+        )
+        return false
+    }
+
+    private fun getRegisteredService(name: String): RegisteredService? {
+        return playerServicesConfig.getObject(name, RegisteredService::class.java)
     }
 
     private fun hasDifferentPlayerUuid(sender: Player): Boolean {
-        val currentOwnerId = playerServicesConfig.getObject(sender.name, RegisteredService::class.java)?.ownerId
+        val currentOwnerId = getRegisteredService(sender.name)?.ownerId
         val hasPlayerUuidChanged = currentOwnerId?.let { it != sender.uniqueId }
         return hasPlayerUuidChanged ?: false
     }
