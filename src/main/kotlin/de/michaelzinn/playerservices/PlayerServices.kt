@@ -53,9 +53,9 @@ class PlayerServicesCommandExecutor(
 
     // TODO "suspend" is just syntax, it can probably be used here,
     // completely without coroutines.
-    fun <AsyncResultT, ResultT> async(
-        runAsync: () -> AsyncResultT,
-        callback: (AsyncResultT) -> ResultT
+    fun <T> async(
+        runAsync: () -> T,
+        callback: (T) -> Unit
     ) {
         Bukkit.getScheduler().runTaskAsynchronously(parentPlugin, Runnable {
             val result = runAsync()
