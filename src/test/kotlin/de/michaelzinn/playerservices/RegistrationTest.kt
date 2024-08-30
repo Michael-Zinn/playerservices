@@ -83,8 +83,9 @@ class RegistrationTest : MockedPluginTest() {
 
     @Test
     fun `rejects empty command`() {
-        val isCommandSuccessful = "Notch" types ""
-        isCommandSuccessful shouldBe false
+        "Notch".types("") { isCommandSuccessful ->
+            isCommandSuccessful shouldBe false
+        }
     }
 
     @Test

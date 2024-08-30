@@ -100,15 +100,22 @@ class PlayerServicesCommandExecutor(
             return false
         }
 
-        return when (command.name) {
-            "ps" -> {handleRegistrationCommand(sender, command, args, {}); true} // TODO fake async
-            "p" -> handleUserCommandPrivacyMode(sender, args)
-            "s" -> handleUserCommandSharingMode(sender, args)
-            else -> false
+        when (command.name) {
+            "ps" -> handleRegistrationCommand(sender, command, args, {})
+            "p" -> handleUserCommandPrivacyMode(sender, args, {})
+            "s" -> handleUserCommandSharingMode(sender, args, {})
         }
+
+        return true // pure fiction
     }
 
-    fun onCommandAsync(sender: CommandSender, command: Command, label: String, args: Array<out String>?, callback: (Boolean) -> Unit) {
+    fun onCommandAsync(
+        sender: CommandSender,
+        command: Command,
+        label: String,
+        args: Array<out String>?,
+        callback: (Boolean) -> Unit
+    ) {
         parentPlugin.logger.info("Command $label (alias for ${command.name}) requested on ${parentPlugin.server.name}, ${parentPlugin.server.ip}, ${parentPlugin.server.port} by ${sender.name}")
 
         if (sender !is Player) {
@@ -118,13 +125,18 @@ class PlayerServicesCommandExecutor(
 
         return when (command.name) {
             "ps" -> handleRegistrationCommand(sender, command, args, callback)
-            "p" -> callback(handleUserCommandPrivacyMode(sender, args))
-            "s" -> callback(handleUserCommandSharingMode(sender, args))
+            "p" -> handleUserCommandPrivacyMode(sender, args, callback)
+            "s" -> handleUserCommandSharingMode(sender, args, callback)
             else -> callback(false)
         }
     }
 
-    private fun handleRegistrationCommand(sender: Player, command: Command, args: Array<out String>?, callback: (Boolean) -> Unit) =
+    private fun handleRegistrationCommand(
+        sender: Player,
+        command: Command,
+        args: Array<out String>?,
+        callback: (Boolean) -> Unit
+    ) =
         when {
             args.isNullOrEmpty() -> callback(rejectEmptyCommand(sender))
             args.size == 1 && args[0] == "unregister" -> callback(unregister(sender))
@@ -132,16 +144,23 @@ class PlayerServicesCommandExecutor(
             else -> callback(false)
         }
 
-    private fun handleUserCommandPrivacyMode(player: Player, args: Array<out String>?): Boolean {
-        if (args.isNullOrEmpty()) return false
+    private fun handleUserCommandPrivacyMode(player: Player, args: Array<out String>?, callback: (Boolean) -> Unit) {
+        if (args.isNullOrEmpty()) return callback(false)
 
         val searchedServiceOwner = args[0]
-        val service = searchServiceByOwner(searchedServiceOwner, player) ?: return false
+        val service = searchServiceByOwner(searchedServiceOwner, player) ?: return callback(false)
 
         val providedArgs = args.drop(1)
 
-        player.sendPlainMessage("(NOT IMPLEMENTED) Calling player service ${service.url} with arguments: ${providedArgs.joinToString()}")
-        return true
+        async(
+            runAsync = { client.privateRequest() },
+            callback = {
+                it.fold(
+                    success = { response -> player.sendPlainMessage(response); callback(true) },
+                    failure = { err -> player.sendErrorMessage(err.message); callback(false) },
+                )
+            }
+        )
     }
 
     private fun searchServiceByOwner(searchedServiceOwner: String, sender: Player): RegisteredService? {
@@ -161,11 +180,11 @@ class PlayerServicesCommandExecutor(
         return playerServicesConfig.getObject(partialMatches.first(), RegisteredService::class.java)!!
     }
 
-    private fun handleUserCommandSharingMode(player: Player, args: Array<out String>?): Boolean {
-        if (args.isNullOrEmpty()) return false
+    private fun handleUserCommandSharingMode(player: Player, args: Array<out String>?, callback: (Boolean) -> Unit) {
+        if (args.isNullOrEmpty()) return callback(false)
 
         val searchedServiceOwner = args[0]
-        val service = searchServiceByOwner(searchedServiceOwner, player) ?: return false
+        val service = searchServiceByOwner(searchedServiceOwner, player) ?: return callback(false)
 
         val serviceArgs = args.drop(1)
 
@@ -177,7 +196,7 @@ class PlayerServicesCommandExecutor(
             player = PlayerInfo(
                 name = player.name,
                 // displayName = player.displayName().toString(),
-                uuid = player.identity().uuid().toString(),
+                uuid = player.uniqueId.toString(),
                 location = PlayerLocationInfo(
                     worldName = player.world.name,
 
@@ -196,13 +215,11 @@ class PlayerServicesCommandExecutor(
             runAsync = { client.sharingRequest(service.url, requestBody) },
             callback = {
                 it.fold(
-                    success = { response -> player.sendPlainMessage(response) },
-                    failure = { err -> player.sendErrorMessage(err.message) },
+                    success = { response -> player.sendPlainMessage(response); callback(true) },
+                    failure = { err -> player.sendErrorMessage(err.message); callback(false) },
                 )
             }
         )
-
-        return true
     }
 
     private fun rejectEmptyCommand(sender: Player): Boolean {

@@ -40,9 +40,9 @@ class UsageTest : MockedPluginTest() {
             player("PlayerWithSuffix") to "http://example.com/otherservice"
         )
 
-        val isCommandSuccessful = "Notch" types "$command Player"
-
-        isCommandSuccessful shouldBe true
+        "Notch".types("$command Player") { isCommandSuccessful ->
+            isCommandSuccessful shouldBe true
+        }
         // TODO: When a real HTTP client is used, verify service of "Player" was called
     }
 
@@ -54,16 +54,17 @@ class UsageTest : MockedPluginTest() {
             player("player2") to "http://example.com/player2service"
         )
 
-        val isCommandSuccessful = "Notch" types "$command p"
-
-        isCommandSuccessful shouldBe false
+        "Notch".types("$command p") { isCommandSuccessful ->
+            isCommandSuccessful shouldBe false
+        }
     }
 
     @ParameterizedTest
     @ValueSource(strings = ["/p", "/s"])
     fun `ignores non-existing service`(command: String) {
-        val isCommandSuccessful = "Notch" types "$command Herobrine"
-        isCommandSuccessful shouldBe false
+        "Notch".types("$command Herobrine") { isCommandSuccessful ->
+            isCommandSuccessful shouldBe false
+        }
     }
 
     @Test
@@ -93,7 +94,8 @@ class UsageTest : MockedPluginTest() {
     @ParameterizedTest
     @ValueSource(strings = ["/p", "/s"])
     fun `rejects empty user command`(command: String) {
-        val isCommandSuccessful = "Notch" types command
-        isCommandSuccessful shouldBe false
+        "Notch".types(command) { isCommandSuccessful ->
+            isCommandSuccessful shouldBe false
+        }
     }
 }

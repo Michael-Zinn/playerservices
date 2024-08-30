@@ -1,9 +1,11 @@
 package de.michaelzinn.playerservices
 
+import com.github.michaelbull.result.Ok
 import de.michaelzinn.playerservices.data.RegisteredService
 import de.michaelzinn.playerservices.net.PlayerServiceClient
 import de.michaelzinn.playerservices.util.Ok
 import io.mockk.*
+import org.bukkit.World
 import org.bukkit.command.CommandSender
 import org.bukkit.command.PluginCommand
 import org.bukkit.configuration.ConfigurationSection
@@ -23,6 +25,7 @@ open class MockedPluginTest {
     protected lateinit var configurationSection: ConfigurationSection
     protected lateinit var playerServices: PlayerServices
     protected lateinit var scheduler: BukkitScheduler
+    protected lateinit var mockedWorld: World
 
     @BeforeEach
     fun setUpMocks() {
@@ -32,6 +35,7 @@ open class MockedPluginTest {
         configurationSection = spyk(MemoryConfiguration())
         playerServices = buildPlayerServicesMock()
         scheduler = buildBukkitSchedulerMock()
+        mockedWorld = buildWorldMock()
 
         commandExecutor = PlayerServicesCommandExecutor(playerServices, configurationSection, client, scheduler)
     }
@@ -50,6 +54,8 @@ open class MockedPluginTest {
 
     private fun buildClientMock(): PlayerServiceClient = mockk {
         every { register(any()) } returns Ok()
+        every { sharingRequest(any(), any()) } returns Ok("Sharing Ok!")
+        every { privateRequest() } returns Ok("Private Ok!")
     }
 
     private fun buildBukkitSchedulerMock(): BukkitScheduler {
@@ -64,6 +70,10 @@ open class MockedPluginTest {
         }
 
         return scheduler
+    }
+
+    private fun buildWorldMock(): World = mockk {
+        every { name } returns "World"
     }
 
     protected fun givenRegisteredPlayerServices(vararg registeredServices: Pair<Player, String>) {
@@ -115,6 +125,14 @@ open class MockedPluginTest {
         every { getUniqueId() } returns uniqueId
         every { sendPlainMessage(any()) } just runs
         every { sendRichMessage(any()) } just runs
+
+        every { world } returns mockedWorld
+        every { x } returns 0.0
+        every { y } returns 118.0
+        every { z } returns 0.0
+        every { pitch } returns 0.0f
+        every { yaw } returns 0.0f
+
     }
 
     private fun splitIntoCommandAndArgs(input: String): Pair<String, Array<String>> {
