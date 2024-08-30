@@ -24,6 +24,7 @@ class PlayerServiceClient {
     sealed class RegistrationError(val message: String) {
         class Unsuccessful(message: String) : RegistrationError(message)
         class WrongResponseCode(message: String) : RegistrationError(message)
+        class Timeout(message: String) : RegistrationError(message)
     }
 
     data class RequestError(val message: String)
@@ -39,17 +40,18 @@ class PlayerServiceClient {
             .put(requestBody)
             .build()
 
-        return client.newCall(request).execute().use { response ->
-            when {
-                !response.isSuccessful -> Err(
-                    RegistrationError.Unsuccessful(
-                        "Registration was not successful.\nCode: ${response.code}\nResponse:\n${response}"
+        try {
+            return client.newCall(request).execute().use { response ->
+                when {
+                    !response.isSuccessful -> Err(
+                        RegistrationError.Unsuccessful(
+                            "Registration was not successful.\nCode: ${response.code}\nResponse:\n${response}"
+                        )
                     )
-                )
 
-                response.code != HttpURLConnection.HTTP_CREATED -> Err(
-                    RegistrationError.WrongResponseCode(
-                        """
+                    response.code != HttpURLConnection.HTTP_CREATED -> Err(
+                        RegistrationError.WrongResponseCode(
+                            """
                         Protocol requires response code 201 (CREATED). Was ${response.code}.
                         Response:
                         ${response}
@@ -63,11 +65,14 @@ class PlayerServiceClient {
                         Headers:
                         ${response.headers}
                         """.trimIndent()
+                        )
                     )
-                )
 
-                else -> Ok()
+                    else -> Ok()
+                }
             }
+        } catch (timeout: java.net.SocketTimeoutException) {
+            return Err(RegistrationError.Timeout("Timeout: ${timeout.localizedMessage}"))
         }
     }
 
@@ -81,13 +86,17 @@ class PlayerServiceClient {
             .post(requestBodyJson)
             .build()
 
-        return client.newCall(request).execute().use { response ->
-            val body = response.body
-            when {
-                response.isSuccessful && body != null -> Ok(body.string())
-                response.isSuccessful && body == null -> Err(RequestError("Response contained no body!"))
-                else -> Err(RequestError("Unexpected code $response"))
+        try {
+            return client.newCall(request).execute().use { response ->
+                val body = response.body
+                when {
+                    response.isSuccessful && body != null -> Ok(body.string())
+                    response.isSuccessful && body == null -> Err(RequestError("Response contained no body!"))
+                    else -> Err(RequestError("Unexpected code $response"))
+                }
             }
+        } catch (timeout: java.net.SocketTimeoutException) {
+            return Err(RequestError("Timeout: ${timeout.localizedMessage}"))
         }
     }
 
