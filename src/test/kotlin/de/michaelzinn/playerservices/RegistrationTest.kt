@@ -75,9 +75,10 @@ class RegistrationTest : MockedPluginTest() {
             "http://[:::1]/playerservice"]
     )
     fun `rejects an invalid URL`(invalidUrl: String) {
-        val isCommandSuccessful = "Notch" types "/ps register $invalidUrl"
-        isCommandSuccessful shouldBe false
-        configurationSection.getValues(true) shouldHaveSize 0
+        "Notch".types("/ps register $invalidUrl") { isCommandSuccessful ->
+            isCommandSuccessful shouldBe false
+            configurationSection.getValues(true) shouldHaveSize 0
+        }
     }
 
     @Test
@@ -88,14 +89,16 @@ class RegistrationTest : MockedPluginTest() {
 
     @Test
     fun `rejects empty registration command`() {
-        val isCommandSuccessful = "Notch" types "/ps"
-        isCommandSuccessful shouldBe false
+        "Notch".types("/ps") { isCommandSuccessful ->
+            isCommandSuccessful shouldBe false
+        }
     }
 
     @Test
     fun `rejects an unknown registration command`() {
-        val isCommandSuccessful = "Notch" types "/ps pspsps"
-        isCommandSuccessful shouldBe false
+        "Notch".types("/ps pspsps") { isCommandSuccessful ->
+            isCommandSuccessful shouldBe false
+        }
     }
 
     @Test

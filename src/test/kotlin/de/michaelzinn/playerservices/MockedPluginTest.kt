@@ -54,11 +54,11 @@ open class MockedPluginTest {
 
     private fun buildBukkitSchedulerMock(): BukkitScheduler {
         val scheduler = mockk<BukkitScheduler>()
-        every { scheduler.runTaskAsynchronously(any<Plugin>(), any<Runnable>())} answers {
+        every { scheduler.runTaskAsynchronously(any<Plugin>(), any<Runnable>()) } answers {
             secondArg<Runnable>().run()
             mockk<BukkitTask>()
         }
-        every { scheduler.runTask(any<Plugin>(), any<Runnable>())} answers {
+        every { scheduler.runTask(any<Plugin>(), any<Runnable>()) } answers {
             secondArg<Runnable>().run()
             mockk<BukkitTask>()
         }
@@ -85,6 +85,8 @@ open class MockedPluginTest {
     }
 
     protected infix fun String.types(input: String) = player(this@types) types input
+
+    protected fun String.types(input: String, callback: (Boolean) -> Unit) = player(this@types).types(input, callback)
 
     protected infix fun CommandSender.types(input: String): Boolean {
         val (command, args) = splitIntoCommandAndArgs(input)
