@@ -12,6 +12,7 @@ import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.serialization.ConfigurationSerialization
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
+import org.bukkit.scheduler.BukkitScheduler
 import java.net.MalformedURLException
 import java.net.URL
 
@@ -49,15 +50,16 @@ class PlayerServicesCommandExecutor(
     private val parentPlugin: JavaPlugin,
     private val playerServicesConfig: ConfigurationSection,
     private val client: PlayerServiceClient,
+    private val scheduler: BukkitScheduler = Bukkit.getScheduler(),
 ) : CommandExecutor {
 
     fun <T> async(
         runAsync: () -> T,
         callback: (T) -> Unit
     ) {
-        Bukkit.getScheduler().runTaskAsynchronously(parentPlugin, Runnable {
+        scheduler.runTaskAsynchronously(parentPlugin, Runnable {
             val result = runAsync()
-            Bukkit.getScheduler().runTask(parentPlugin, Runnable {
+            scheduler.runTask(parentPlugin, Runnable {
                 callback(result)
             })
         })
@@ -89,6 +91,7 @@ class PlayerServicesCommandExecutor(
             .filter { it.startsWith(searchedOwnerName, ignoreCase = true) }
             .take(10)
 
+    // Fake synchronous, returns true when it launches asynchronous stuff.
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>?): Boolean {
         parentPlugin.logger.info("Command $label (alias for ${command.name}) requested on ${parentPlugin.server.name}, ${parentPlugin.server.ip}, ${parentPlugin.server.port} by ${sender.name}")
 
@@ -98,19 +101,35 @@ class PlayerServicesCommandExecutor(
         }
 
         return when (command.name) {
-            "ps" -> handleRegistrationCommand(sender, command, args)
+            "ps" -> {handleRegistrationCommand(sender, command, args, {}); true} // TODO fake async
             "p" -> handleUserCommandPrivacyMode(sender, args)
             "s" -> handleUserCommandSharingMode(sender, args)
             else -> false
         }
     }
 
-    private fun handleRegistrationCommand(sender: Player, command: Command, args: Array<out String>?): Boolean =
+    fun onCommandAsync(sender: CommandSender, command: Command, label: String, args: Array<out String>?, callback: (Boolean) -> Unit) {
+        parentPlugin.logger.info("Command $label (alias for ${command.name}) requested on ${parentPlugin.server.name}, ${parentPlugin.server.ip}, ${parentPlugin.server.port} by ${sender.name}")
+
+        if (sender !is Player) {
+            sender.sendPlainMessage("You must be a player to use PlayerServices commands")
+            return callback(false)
+        }
+
+        return when (command.name) {
+            "ps" -> handleRegistrationCommand(sender, command, args, callback)
+            "p" -> callback(handleUserCommandPrivacyMode(sender, args))
+            "s" -> callback(handleUserCommandSharingMode(sender, args))
+            else -> callback(false)
+        }
+    }
+
+    private fun handleRegistrationCommand(sender: Player, command: Command, args: Array<out String>?, callback: (Boolean) -> Unit) =
         when {
-            args.isNullOrEmpty() -> rejectEmptyCommand(sender)
-            args.size == 1 && args[0] == "unregister" -> unregister(sender)
-            args.size == 2 && args[0] == "register" -> register(sender, args[1])
-            else -> false
+            args.isNullOrEmpty() -> callback(rejectEmptyCommand(sender))
+            args.size == 1 && args[0] == "unregister" -> callback(unregister(sender))
+            args.size == 2 && args[0] == "register" -> register(sender, args[1], callback)
+            else -> callback(false)
         }
 
     private fun handleUserCommandPrivacyMode(player: Player, args: Array<out String>?): Boolean {
@@ -203,7 +222,7 @@ class PlayerServicesCommandExecutor(
         return true
     }
 
-    private fun register(player: Player, serviceUrl: String): Boolean {
+    private fun register(player: Player, serviceUrl: String, callback: (Boolean) -> Unit) {
         fun Player.sendRegistrationMessage(playerServiceUrl: URL) =
             this.sendRichMessage("<green>Service registered for</green> $name <green>at</green> $playerServiceUrl")
 
@@ -212,13 +231,13 @@ class PlayerServicesCommandExecutor(
 
             // Can't register if you squatted the player name from someone else.
             // This could happen if the original player changed their username.
-            if (hasDifferentPlayerUuid(player)) return false
+            if (hasDifferentPlayerUuid(player)) return callback(false)
 
             val requestBody = PlayerServiceRegistrationRequestBody(
                 mcServerName = player.server.name,
                 mcServerIp = player.server.ip,
                 playerName = player.name,
-                playerUuid = player.identity().uuid().toString(),
+                playerUuid = player.uniqueId.toString(),// .identity().uuid().toString(),
                 serviceUrl = serviceUrl,
             )
             async(
@@ -238,10 +257,10 @@ class PlayerServicesCommandExecutor(
                 }
             )
 
-            return true
+            callback(true)
         } catch (ex: MalformedURLException) {
             player.sendErrorMessage("Invalid URL: $serviceUrl")
-            return false
+            callback(false)
         }
     }
 

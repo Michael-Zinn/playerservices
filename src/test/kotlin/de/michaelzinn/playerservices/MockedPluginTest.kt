@@ -1,12 +1,17 @@
 package de.michaelzinn.playerservices
 
 import de.michaelzinn.playerservices.data.RegisteredService
+import de.michaelzinn.playerservices.net.PlayerServiceClient
+import de.michaelzinn.playerservices.util.Ok
 import io.mockk.*
 import org.bukkit.command.CommandSender
 import org.bukkit.command.PluginCommand
 import org.bukkit.configuration.ConfigurationSection
 import org.bukkit.configuration.MemoryConfiguration
 import org.bukkit.entity.Player
+import org.bukkit.plugin.Plugin
+import org.bukkit.scheduler.BukkitScheduler
+import org.bukkit.scheduler.BukkitTask
 import org.junit.jupiter.api.BeforeEach
 import java.net.URL
 import java.util.*
@@ -14,16 +19,21 @@ import java.util.*
 open class MockedPluginTest {
     private lateinit var commandExecutor: PlayerServicesCommandExecutor
 
+    protected lateinit var client: PlayerServiceClient
     protected lateinit var configurationSection: ConfigurationSection
     protected lateinit var playerServices: PlayerServices
+    protected lateinit var scheduler: BukkitScheduler
 
     @BeforeEach
     fun setUpMocks() {
         clearAllMocks()
 
+        client = buildClientMock()
         configurationSection = spyk(MemoryConfiguration())
         playerServices = buildPlayerServicesMock()
-        commandExecutor = PlayerServicesCommandExecutor(configurationSection, playerServices)
+        scheduler = buildBukkitSchedulerMock()
+
+        commandExecutor = PlayerServicesCommandExecutor(playerServices, configurationSection, client, scheduler)
     }
 
     private fun buildPlayerServicesMock(): PlayerServices = mockk {
@@ -36,6 +46,24 @@ open class MockedPluginTest {
             every { info(any(String::class)) } just runs
         }
         every { saveConfig() } just runs
+    }
+
+    private fun buildClientMock(): PlayerServiceClient = mockk {
+        every { register(any()) } returns Ok()
+    }
+
+    private fun buildBukkitSchedulerMock(): BukkitScheduler {
+        val scheduler = mockk<BukkitScheduler>()
+        every { scheduler.runTaskAsynchronously(any<Plugin>(), any<Runnable>())} answers {
+            secondArg<Runnable>().run()
+            mockk<BukkitTask>()
+        }
+        every { scheduler.runTask(any<Plugin>(), any<Runnable>())} answers {
+            secondArg<Runnable>().run()
+            mockk<BukkitTask>()
+        }
+
+        return scheduler
     }
 
     protected fun givenRegisteredPlayerServices(vararg registeredServices: Pair<Player, String>) {
@@ -68,7 +96,19 @@ open class MockedPluginTest {
         return commandExecutor.onCommand(this@types, pluginCommand, input, args)
     }
 
+    protected fun CommandSender.types(input: String, callback: (Boolean) -> Unit) {
+        val (command, args) = splitIntoCommandAndArgs(input)
+
+        val pluginCommand: PluginCommand = mockk {
+            every { name } returns command
+        }
+
+        commandExecutor.onCommandAsync(this@types, pluginCommand, input, args, callback)
+    }
+
+
     protected fun player(name: String, uniqueId: UUID = UUID.randomUUID()): Player = mockk {
+        every { server } returns playerServices.server
         every { getName() } returns name
         every { getUniqueId() } returns uniqueId
         every { sendPlainMessage(any()) } just runs

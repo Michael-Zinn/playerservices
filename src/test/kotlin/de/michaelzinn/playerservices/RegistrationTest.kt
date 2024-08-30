@@ -14,11 +14,13 @@ import java.net.URL
 
 class RegistrationTest : MockedPluginTest() {
     @ParameterizedTest
-    @ValueSource(strings = [
-        "http://example.com/playerservice",
-        "http://127.0.0.1/playerservice",
-        "http://[2001:0db8:85a3:0000:0000:8a2e:0370:7334]/playerservice",
-        "http://[::1]/playerservice"])
+    @ValueSource(
+        strings = [
+            "http://example.com/playerservice",
+            "http://127.0.0.1/playerservice",
+            "http://[2001:0db8:85a3:0000:0000:8a2e:0370:7334]/playerservice",
+            "http://[::1]/playerservice"]
+    )
     fun `registers a player service`(validUrl: String) {
         val notch = player("Notch")
 
@@ -52,23 +54,26 @@ class RegistrationTest : MockedPluginTest() {
     fun `re-registration overwrites previous service`() {
         val notch = player("Notch")
 
-        notch types "/ps register http://example.com/v1/playerservice"
-        notch types "/ps register http://example.com/v2/playerservice"
-
-        configurationSection.getValues(false) shouldContainExactly mapOf(
-            "Notch" to RegisteredService(
-                notch.uniqueId,
-                URL("http://example.com/v2/playerservice")
-            )
-        )
+        notch.types("/ps register http://example.com/v1/playerservice") {
+            notch.types("/ps register http://example.com/v2/playerservice") {
+                configurationSection.getValues(false) shouldContainExactly mapOf(
+                    "Notch" to RegisteredService(
+                        notch.uniqueId,
+                        URL("http://example.com/v2/playerservice")
+                    )
+                )
+            }
+        }
     }
 
     @ParameterizedTest
-    @ValueSource(strings = [
-        "",
-        "0://example.com/",
-        "://example.com/",
-        "http://[:::1]/playerservice"])
+    @ValueSource(
+        strings = [
+            "",
+            "0://example.com/",
+            "://example.com/",
+            "http://[:::1]/playerservice"]
+    )
     fun `rejects an invalid URL`(invalidUrl: String) {
         val isCommandSuccessful = "Notch" types "/ps register $invalidUrl"
         isCommandSuccessful shouldBe false
