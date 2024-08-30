@@ -160,15 +160,11 @@ class PlayerServicesCommandExecutor(
                 // displayName = player.displayName().toString(),
                 uuid = player.identity().uuid().toString(),
                 location = PlayerLocationInfo(
-                    worldName = player.world.name, // usually world, world_nether ?
+                    worldName = player.world.name,
 
                     x = player.x,
                     y = player.y,
                     z = player.z,
-
-                    //blockX = player.location.blockX,
-                    //blockY = player.location.blockY,
-                    //blockZ = player.location.blockZ,
 
                     pitch = player.pitch,
                     yaw = player.yaw,
