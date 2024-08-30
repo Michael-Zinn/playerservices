@@ -30,7 +30,6 @@ class PlayerServiceClient {
     /**
      * Attempt to register a service with a user.
      */
-    // TODO make async. Coroutines? Flow?
     fun register(requestData: PlayerServiceRegistrationRequestBody): Result<Unit, RegistrationError> {
         val requestBody = Json.encodeToString(requestData).toRequestBody(playerServiceMediaType)
 
@@ -46,7 +45,6 @@ class PlayerServiceClient {
                         "Registration was not successful.\nCode: ${response.code}\nResponse:\n${response}"
                     )
                 )
-
 
                 response.code != 201 -> Err(
                     RegistrationError.WrongResponseCode(

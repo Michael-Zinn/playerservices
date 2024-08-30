@@ -1,10 +1,8 @@
 package de.michaelzinn.playerservices
 
-import com.github.michaelbull.result.binding
-import com.github.michaelbull.result.fold
-import com.github.michaelbull.result.getOrElse
-import com.github.michaelbull.result.runCatching
+import com.github.michaelbull.result.*
 import de.michaelzinn.playerservices.net.*
+import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
@@ -52,6 +50,21 @@ class PlayerServicesCommandExecutor(
     private val playerServicesConfig: ConfigurationSection,
     private val client: PlayerServiceClient,
 ) : CommandExecutor {
+
+    // TODO "suspend" is just syntax, it can probably be used here,
+    // completely without coroutines.
+    fun <AsyncResultT, ResultT> async(
+        runAsync: () -> AsyncResultT,
+        callback: (AsyncResultT) -> ResultT
+    ) {
+        Bukkit.getScheduler().runTaskAsynchronously(parentPlugin, Runnable {
+            val result = runAsync()
+            Bukkit.getScheduler().runTask(parentPlugin, Runnable {
+                callback(result)
+            })
+        })
+    }
+
     fun onTabCompete(sender: CommandSender, command: Command, args: Array<out String>?): MutableList<String>? {
         if (sender !is Player) return null
 
@@ -166,13 +179,17 @@ class PlayerServicesCommandExecutor(
             message = serviceArgs.joinToString(" ") ?: ""
         )
 
-        client.sharingRequest(service.url, requestBody).fold(
-            success = { player.sendPlainMessage(it); true },
-            failure = { player.sendErrorMessage(it.message); false }
+        async(
+            runAsync = { client.sharingRequest(service.url, requestBody) },
+            callback = {
+                it.fold(
+                    success = { response -> player.sendPlainMessage(response) },
+                    failure = { err -> player.sendErrorMessage(err.message) },
+                )
+            }
         )
 
-        return true // for tests TODO fix
-        //player.sendPlainMessage("(NOT IMPLEMENTED) Calling player service ${service.url} with arguments: ${providedArgs.joinToString()}")
+        return true
     }
 
     private fun rejectEmptyCommand(sender: Player): Boolean {
@@ -190,37 +207,43 @@ class PlayerServicesCommandExecutor(
         return true
     }
 
-    private fun register(player: Player, serviceUrl: String) = binding {
-        val url = runCatching<URL> { URL(serviceUrl) }.bind()
+    private fun register(player: Player, serviceUrl: String): Boolean {
+        try {
+            val url = URL(serviceUrl)
 
-        // Can't register if you squatted the player name from someone else.
-        // This could happen if the original player changed their username.
-        if (hasDifferentPlayerUuid(player)) return@binding false
+            // Can't register if you squatted the player name from someone else.
+            // This could happen if the original player changed their username.
+            if (hasDifferentPlayerUuid(player)) return false
 
-        client.register(
-            PlayerServiceRegistrationRequestBody(
+            val requestBody = PlayerServiceRegistrationRequestBody(
                 mcServerName = player.server.name,
                 mcServerIp = player.server.ip,
                 playerName = player.name,
                 playerUuid = player.identity().uuid().toString(),
                 serviceUrl = serviceUrl,
             )
-        ).bind()
+            async(
+                runAsync = { client.register(requestBody) },
+                callback = {
+                    it.fold(
+                        success = {
+                            val newService = RegisteredService(player.uniqueId, url)
+                            playerServicesConfig[player.name] = newService
+                            parentPlugin.saveConfig()
+                            player.sendRegistrationMessage(newService.url)
+                        },
+                        failure = { err ->
+                            player.sendErrorMessage(err.message)
+                        }
+                    )
+                }
+            )
 
-        val newService = RegisteredService(player.uniqueId, url)
-        playerServicesConfig[player.name] = newService
-        parentPlugin.saveConfig()
-        player.sendRegistrationMessage(newService.url)
-        return@binding true
-    }.getOrElse { err -> //} catch (ex: MalformedURLException) {
-        player.sendErrorMessage(
-            when (err) {
-                is PlayerServiceClient.RegistrationError -> err.message
-                is MalformedURLException -> "Invalid URL: $serviceUrl"
-                else -> "Impossible error $err"
-            }
-        )
-        return false
+            return true
+        } catch (ex: MalformedURLException) {
+            player.sendErrorMessage("Invalid URL: $serviceUrl")
+            return false
+        }
     }
 
     private fun getRegisteredService(name: String): RegisteredService? {
