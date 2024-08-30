@@ -36,5 +36,5 @@ class UnregistrationTest : MockedPluginTest() {
             configurationSection.getKeys(true) shouldContainExactly setOf("Herobrine")
         }
     }
-    
+
 }

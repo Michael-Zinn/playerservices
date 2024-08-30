@@ -249,15 +249,15 @@ class PlayerServicesCommandExecutor(
                             playerServicesConfig[player.name] = newService
                             parentPlugin.saveConfig()
                             player.sendRegistrationMessage(newService.url)
+                            callback(true)
                         },
                         failure = { err ->
                             player.sendErrorMessage(err.message)
+                            callback(false)
                         }
                     )
                 }
             )
-
-            callback(true)
         } catch (ex: MalformedURLException) {
             player.sendErrorMessage("Invalid URL: $serviceUrl")
             callback(false)
