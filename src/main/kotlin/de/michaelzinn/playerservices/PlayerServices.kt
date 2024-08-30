@@ -1,19 +1,19 @@
 package de.michaelzinn.playerservices
 
 import com.github.michaelbull.result.*
+import de.michaelzinn.playerservices.data.RegisteredService
 import de.michaelzinn.playerservices.net.*
+import de.michaelzinn.playerservices.util.sendErrorMessage
 import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
 import org.bukkit.configuration.ConfigurationSection
-import org.bukkit.configuration.serialization.ConfigurationSerializable
 import org.bukkit.configuration.serialization.ConfigurationSerialization
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
 import java.net.MalformedURLException
 import java.net.URL
-import java.util.*
 
 @Suppress("unused") // Instantiated by the server
 class PlayerServices : JavaPlugin() {
@@ -51,8 +51,6 @@ class PlayerServicesCommandExecutor(
     private val client: PlayerServiceClient,
 ) : CommandExecutor {
 
-    // TODO "suspend" is just syntax, it can probably be used here,
-    // completely without coroutines.
     fun <T> async(
         runAsync: () -> T,
         callback: (T) -> Unit
@@ -198,6 +196,8 @@ class PlayerServicesCommandExecutor(
     }
 
     private fun unregister(sender: Player): Boolean {
+        fun Player.sendUnregistrationMessage() = this.sendRichMessage("<green>Service unregistered for</green> $name")
+
         if (!playerServicesConfig.contains(sender.name)) return false
         if (hasDifferentPlayerUuid(sender)) return false
 
@@ -208,6 +208,9 @@ class PlayerServicesCommandExecutor(
     }
 
     private fun register(player: Player, serviceUrl: String): Boolean {
+        fun Player.sendRegistrationMessage(playerServiceUrl: URL) =
+            this.sendRichMessage("<green>Service registered for</green> $name <green>at</green> $playerServiceUrl")
+
         try {
             val url = URL(serviceUrl)
 
@@ -256,28 +259,3 @@ class PlayerServicesCommandExecutor(
         return hasPlayerUuidChanged ?: false
     }
 }
-
-data class RegisteredService(val ownerId: UUID, val url: URL) : ConfigurationSerializable {
-    override fun serialize() = mutableMapOf(
-        "ownerId" to ownerId.toString(),
-        "url" to url.toString()
-    )
-
-    override fun toString() = "RegisteredService(ownerId=$ownerId, url=$url)"
-
-    companion object {
-        @JvmStatic
-        @Suppress("unused") // Called by the server for deserialization
-        fun deserialize(args: Map<String, Any>) = RegisteredService(
-            UUID.fromString(args["ownerId"] as String),
-            URL(args["url"] as String)
-        )
-    }
-}
-
-fun Player.sendRegistrationMessage(playerServiceUrl: URL) =
-    this.sendRichMessage("<green>Service registered for</green> $name <green>at</green> $playerServiceUrl")
-
-fun Player.sendUnregistrationMessage() = this.sendRichMessage("<green>Service unregistered for</green> $name")
-
-fun Player.sendErrorMessage(message: String) = this.sendRichMessage("<red>Error:</red> $message")

@@ -1,5 +1,6 @@
 package de.michaelzinn.playerservices
 
+import de.michaelzinn.playerservices.data.RegisteredService
 import io.mockk.*
 import org.bukkit.command.CommandSender
 import org.bukkit.command.PluginCommand

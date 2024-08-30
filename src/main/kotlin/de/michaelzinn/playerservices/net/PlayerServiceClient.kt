@@ -10,6 +10,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.net.HttpURLConnection
 import java.net.URL
 
 class PlayerServiceClient {
@@ -46,10 +47,10 @@ class PlayerServiceClient {
                     )
                 )
 
-                response.code != 201 -> Err(
+                response.code != HttpURLConnection.HTTP_CREATED -> Err(
                     RegistrationError.WrongResponseCode(
                         """
-                        Protocol requires response code 201. Was ${response.code}.
+                        Protocol requires response code 201 (CREATED). Was ${response.code}.
                         Response:
                         ${response}
                         
@@ -81,10 +82,11 @@ class PlayerServiceClient {
             .build()
 
         return client.newCall(request).execute().use { response ->
-            if (response.isSuccessful) {
-                Ok(response.body!!.string())
-            } else {
-                Err(RequestError("Unexpected code $response"))
+            val body = response.body
+            when {
+                response.isSuccessful && body != null -> Ok(body.string())
+                response.isSuccessful && body == null -> Err(RequestError("Response contained no body!"))
+                else -> Err(RequestError("Unexpected code $response"))
             }
         }
     }

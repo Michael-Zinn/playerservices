@@ -1,5 +1,6 @@
 package de.michaelzinn.playerservices
 
+import de.michaelzinn.playerservices.data.RegisteredService
 import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
