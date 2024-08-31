@@ -1,9 +1,14 @@
 package de.michaelzinn.playerservices
 
 import com.github.michaelbull.result.*
+import de.michaelzinn.playerservices.async.AsyncDispatcher
+import de.michaelzinn.playerservices.async.MainThreadDispatcher
 import de.michaelzinn.playerservices.data.RegisteredService
 import de.michaelzinn.playerservices.net.*
 import de.michaelzinn.playerservices.util.sendErrorMessage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
@@ -53,6 +58,14 @@ class PlayerServicesCommandExecutor(
     private val scheduler: BukkitScheduler = Bukkit.getScheduler(),
 ) : CommandExecutor {
 
+    val mainDispatcher = MainThreadDispatcher(parentPlugin, scheduler)
+    val asyncDispatcher = AsyncDispatcher(parentPlugin, scheduler)
+
+    suspend inline fun <T> async(crossinline code: () -> T) = withContext(asyncDispatcher) {
+        code()
+    }
+
+    /*
     fun <T> async(
         runAsync: () -> T,
         callback: (T) -> Unit
@@ -64,6 +77,7 @@ class PlayerServicesCommandExecutor(
             })
         })
     }
+     */
 
     fun onTabCompete(sender: CommandSender, command: Command, args: Array<out String>?): MutableList<String>? {
         if (sender !is Player) return null
@@ -93,61 +107,56 @@ class PlayerServicesCommandExecutor(
 
     // Fake synchronous, returns true when it launches asynchronous stuff.
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>?): Boolean {
-        onCommandAsync(sender, command, label, args, {})
+        CoroutineScope(mainDispatcher).launch { onCommandAsync(sender, command, label, args) }
         return true
     }
 
-    fun onCommandAsync(
+    suspend fun onCommandAsync(
         sender: CommandSender,
         command: Command,
         label: String,
         args: Array<out String>?,
-        callback: (Boolean) -> Unit
-    ) {
+    ): Boolean {
         parentPlugin.logger.info("Command $label (alias for ${command.name}) requested on ${parentPlugin.server.name}, ${parentPlugin.server.ip}, ${parentPlugin.server.port} by ${sender.name}")
 
         if (sender !is Player) {
             sender.sendPlainMessage("You must be a player to use PlayerServices commands")
-            return callback(false)
+            return false
         }
 
         return when (command.name) {
-            "ps" -> handleRegistrationCommand(sender, command, args, callback)
-            "p" -> handleUserCommandPrivacyMode(sender, args, callback)
-            "s" -> handleUserCommandSharingMode(sender, args, callback)
-            else -> callback(false)
+            "ps" -> handleRegistrationCommand(sender, command, args)
+            "p" -> handleUserCommandPrivacyMode(sender, args)
+            "s" -> handleUserCommandSharingMode(sender, args)
+            else -> false
         }
     }
 
-    private fun handleRegistrationCommand(
+    private suspend fun handleRegistrationCommand(
         sender: Player,
         command: Command,
         args: Array<out String>?,
-        callback: (Boolean) -> Unit
-    ) =
+    ): Boolean =
         when {
-            args.isNullOrEmpty() -> callback(rejectEmptyCommand(sender))
-            args.size == 1 && args[0] == "unregister" -> callback(unregister(sender))
-            args.size == 2 && args[0] == "register" -> register(sender, args[1], callback)
-            else -> callback(false)
+            args.isNullOrEmpty() -> rejectEmptyCommand(sender)
+            args.size == 1 && args[0] == "unregister" -> unregister(sender)
+            args.size == 2 && args[0] == "register" -> register(sender, args[1])
+            else -> false
         }
 
-    private fun handleUserCommandPrivacyMode(player: Player, args: Array<out String>?, callback: (Boolean) -> Unit) {
-        if (args.isNullOrEmpty()) return callback(false)
+    private suspend fun handleUserCommandPrivacyMode(player: Player, args: Array<out String>?): Boolean {
+        if (args.isNullOrEmpty()) return false
 
         val searchedServiceOwner = args[0]
-        val service = searchServiceByOwner(searchedServiceOwner, player) ?: return callback(false)
+        val service = searchServiceByOwner(searchedServiceOwner, player) ?: return false
 
         val providedArgs = args.drop(1)
 
-        async(
-            runAsync = { client.privateRequest() },
-            callback = {
-                it.fold(
-                    success = { response -> player.sendPlainMessage(response); callback(true) },
-                    failure = { err -> player.sendErrorMessage(err.message); callback(false) },
-                )
-            }
+        val result = async { client.privateRequest() }
+
+        return result.fold(
+            success = { response -> player.sendPlainMessage(response); true },
+            failure = { err -> player.sendErrorMessage(err.message); false },
         )
     }
 
@@ -168,11 +177,11 @@ class PlayerServicesCommandExecutor(
         return playerServicesConfig.getObject(partialMatches.first(), RegisteredService::class.java)!!
     }
 
-    private fun handleUserCommandSharingMode(player: Player, args: Array<out String>?, callback: (Boolean) -> Unit) {
-        if (args.isNullOrEmpty()) return callback(false)
+    private suspend fun handleUserCommandSharingMode(player: Player, args: Array<out String>?): Boolean {
+        if (args.isNullOrEmpty()) return false
 
         val searchedServiceOwner = args[0]
-        val service = searchServiceByOwner(searchedServiceOwner, player) ?: return callback(false)
+        val service = searchServiceByOwner(searchedServiceOwner, player) ?: return false
 
         val serviceArgs = args.drop(1)
 
@@ -199,14 +208,11 @@ class PlayerServicesCommandExecutor(
             message = serviceArgs.joinToString(" ") ?: ""
         )
 
-        async(
-            runAsync = { client.sharingRequest(service.url, requestBody) },
-            callback = {
-                it.fold(
-                    success = { response -> player.sendPlainMessage(response); callback(true) },
-                    failure = { err -> player.sendErrorMessage(err.message); callback(false) },
-                )
-            }
+        val result = async { client.sharingRequest(service.url, requestBody) }
+
+        return result.fold(
+            success = { response -> player.sendPlainMessage(response); true },
+            failure = { err -> player.sendErrorMessage(err.message); false },
         )
     }
 
@@ -227,7 +233,7 @@ class PlayerServicesCommandExecutor(
         return true
     }
 
-    private fun register(player: Player, serviceUrl: String, callback: (Boolean) -> Unit) {
+    private suspend fun register(player: Player, serviceUrl: String): Boolean {
         fun Player.sendRegistrationMessage(playerServiceUrl: URL) =
             this.sendRichMessage("<green>Service registered for</green> $name <green>at</green> $playerServiceUrl")
 
@@ -236,7 +242,7 @@ class PlayerServicesCommandExecutor(
 
             // Can't register if you squatted the player name from someone else.
             // This could happen if the original player changed their username.
-            if (hasDifferentPlayerUuid(player)) return callback(false)
+            if (hasDifferentPlayerUuid(player)) return false
 
             val requestBody = PlayerServiceRegistrationRequestBody(
                 mcServerName = player.server.name,
@@ -245,27 +251,25 @@ class PlayerServicesCommandExecutor(
                 playerUuid = player.uniqueId.toString(),// .identity().uuid().toString(),
                 serviceUrl = serviceUrl,
             )
-            async(
-                runAsync = { client.register(requestBody) },
-                callback = {
-                    it.fold(
-                        success = {
-                            val newService = RegisteredService(player.uniqueId, url)
-                            playerServicesConfig[player.name] = newService
-                            parentPlugin.saveConfig()
-                            player.sendRegistrationMessage(newService.url)
-                            callback(true)
-                        },
-                        failure = { err ->
-                            player.sendErrorMessage(err.message)
-                            callback(false)
-                        }
-                    )
+
+            val result = async { client.register(requestBody) }
+
+            return result.fold(
+                success = {
+                    val newService = RegisteredService(player.uniqueId, url)
+                    playerServicesConfig[player.name] = newService
+                    parentPlugin.saveConfig()
+                    player.sendRegistrationMessage(newService.url)
+                    true
+                },
+                failure = { err ->
+                    player.sendErrorMessage(err.message)
+                    false
                 }
             )
         } catch (ex: MalformedURLException) {
             player.sendErrorMessage("Invalid URL: $serviceUrl")
-            callback(false)
+            return false
         }
     }
 
