@@ -76,7 +76,7 @@ class PlayerServiceClient {
         }
     }
 
-    fun privateRequest(): Result<String, String> = Err("Private requests are not implemented yet!")
+    fun privateRequest(): Result<String, String> = Err("Private requests are not implemented yet")
 
     fun sharingRequest(url: String, requestBody: PlayerServiceRequestBody) = sharingRequest(URL(url), requestBody)
     fun sharingRequest(url: URL, requestBody: PlayerServiceRequestBody): Result<String, String> {
@@ -92,7 +92,7 @@ class PlayerServiceClient {
                 val body = response.body
                 when {
                     response.isSuccessful && body != null -> Ok(body.string())
-                    response.isSuccessful && body == null -> Err("Response contained no body!")
+                    response.isSuccessful && body == null -> Err("Response contained no body")
                     else -> Err("Unexpected code $response")
                 }
             }

@@ -87,9 +87,9 @@ open class MockedPluginTest {
 
     private fun buildClientMock(): PlayerServiceClient = mockk {
         every { register(any()) } returns Ok()
-        every { sharingRequest(any<String>(), any()) } returns Ok("Sharing Ok!")
-        every { sharingRequest(any<URL>(), any()) } returns Ok("Sharing Ok!")
-        every { privateRequest() } returns Ok("Private Ok!")
+        every { sharingRequest(any<String>(), any()) } returns Ok("Sharing Ok")
+        every { sharingRequest(any<URL>(), any()) } returns Ok("Sharing Ok")
+        every { privateRequest() } returns Ok("Private Ok")
     }
 
     private fun buildBukkitSchedulerMock(): BukkitScheduler {

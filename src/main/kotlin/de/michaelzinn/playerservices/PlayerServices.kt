@@ -139,8 +139,8 @@ class PlayerServicesCommandExecutor(
         player: Player,
         args: Array<out String>?
     ): Boolean = coroutineBinding {
-        if (args.isNullOrEmpty()) Err(null).bind()
-        val searchedServiceOwner = args[0]
+        if (args.isNullOrEmpty()) Err("No player name given").bind<Unit>()
+        val searchedServiceOwner = args!![0]
         val service = registry.searchServiceByOwner(searchedServiceOwner, player).bind()
 
         val providedArgs = args.drop(1)
@@ -149,12 +149,15 @@ class PlayerServicesCommandExecutor(
 
         player.sendPlainMessage(response)
         Ok().bind()
-    }.mapError { err: String? ->
-        err?.let(player::sendErrorMessage)
+    }.mapError { err: String ->
+        player.sendErrorMessage(err)
     }.toBoolean()
 
-    private suspend fun handleUserCommandSharingMode(player: Player, args: Array<out String>?) = coroutineBinding {
-        if (args.isNullOrEmpty()) Err(null).bind<String>()
+    private suspend fun handleUserCommandSharingMode(
+        player: Player,
+        args: Array<out String>?
+    ): Boolean = coroutineBinding {
+        if (args.isNullOrEmpty()) Err("No player name given").bind<String>()
 
         val searchedServiceOwner = args!![0]
         val service = registry.searchServiceByOwner(searchedServiceOwner, player).bind()
@@ -184,10 +187,10 @@ class PlayerServicesCommandExecutor(
         )
 
         val response = async { client.sharingRequest(service.serviceUrl, requestBody) }.bind()
-        player.sendPlainMessage(response);
+        player.sendPlainMessage(response)
 
-    }.mapError { err: String? ->
-        err?.let(player::sendErrorMessage)
+    }.mapError { err: String ->
+        player.sendErrorMessage(err)
     }.toBoolean()
 
     private fun rejectEmptyCommand(sender: Player): Boolean {
@@ -204,7 +207,10 @@ class PlayerServicesCommandExecutor(
         return success
     }
 
-    private suspend fun register(player: Player, serviceUrl: String): Boolean = coroutineBinding {
+    private suspend fun register(
+        player: Player,
+        serviceUrl: String
+    ): Boolean = coroutineBinding {
 
         fun Player.sendRegistrationMessage(playerServiceUrl: URL) = this.sendRichMessage(
             "<green>Service registered for</green> $name <green>at</green> $playerServiceUrl"
@@ -215,7 +221,7 @@ class PlayerServicesCommandExecutor(
 
         // Can't register if you squatted the player name from someone else.
         // This could happen if the original player changed their username.
-        if (registry.hasDifferentPlayerUuid(player)) Err(null).bind<Unit>()
+        if (registry.hasDifferentPlayerUuid(player)) Err("Contact your server admin").bind<Unit>()
 
         val requestBody = PlayerServiceRegistrationRequestBody(
             mcServerName = player.server.name,
@@ -234,8 +240,8 @@ class PlayerServicesCommandExecutor(
         )
         player.sendRegistrationMessage(url)
 
-    }.mapError { err: String? ->
-        err?.let(player::sendErrorMessage)
+    }.mapError { err: String ->
+        player.sendErrorMessage(err)
     }.toBoolean()
 
 
