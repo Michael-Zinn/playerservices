@@ -55,6 +55,7 @@ class UsageTest : MockedPluginTest() {
         )
 
         val isCommandSuccessful = "Notch" types "$command p"
+
         isCommandSuccessful shouldBe false
     }
 
