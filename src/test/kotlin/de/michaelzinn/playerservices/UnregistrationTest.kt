@@ -18,10 +18,6 @@ class UnregistrationTest : MockedPluginTest() {
         val isCommandSuccessful = notch types "/ps unregister"
 
         isCommandSuccessful shouldBe true
-        /*verifyOrder {
-            configurationSection.set(any(), null)
-            playerServices.saveConfig()
-        }*/
         playerServiceRegistryPersistence.get().keys shouldContainExactly setOf("Herobrine")
     }
 

@@ -26,7 +26,6 @@ open class MockedPluginTest {
 
     protected lateinit var client: PlayerServiceClient
 
-    //protected lateinit var configurationSection: ConfigurationSection
     protected lateinit var playerServices: PlayerServices
     protected lateinit var playerServiceRegistryPersistence: PlayerServiceRegistryPersistence
     protected lateinit var scheduler: BukkitScheduler
@@ -44,14 +43,12 @@ open class MockedPluginTest {
         scheduler = buildBukkitSchedulerMock()
 
         mockedWorld = buildWorldMock()
-        //configurationSection = spyk(MemoryConfiguration())
 
         testMainDispatcher = MainThreadDispatcher(playerServices, scheduler)
 
         commandExecutor = PlayerServicesCommandExecutor(
             parentPlugin = playerServices,
             registry = PlayerServiceRegistry(playerServiceRegistryPersistence),
-            //configurationSection,
             client = client,
             scheduler = scheduler
         )
@@ -114,7 +111,7 @@ open class MockedPluginTest {
     }
 
     protected fun givenRegisteredPlayerServices(vararg registeredServices: Pair<Player, String>) {
-        val newEntries = registeredServices.map { (player, url) ->
+        registeredServices.map { (player, url) ->
             PlayerServiceEntry(
                 playerName = player.name,
                 playerUuid = player.uniqueId.toString(),
@@ -123,11 +120,6 @@ open class MockedPluginTest {
         }.forEach { entry ->
             playerServiceRegistryPersistence.add(entry)
         }
-
-        /*
-        registeredServices.forEach {
-            configurationSection[it.first.name] = RegisteredService(it.first.uniqueId, URL(it.second))
-        }*/
     }
 
     protected infix fun String.startsTyping(input: String) = player(this@startsTyping) startsTyping input

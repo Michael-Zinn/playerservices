@@ -4,10 +4,7 @@ import de.michaelzinn.playerservices.data.PlayerServiceEntry
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.maps.shouldHaveSize
 import io.kotest.matchers.shouldBe
-import io.mockk.every
-import io.mockk.just
-import io.mockk.mockk
-import io.mockk.runs
+import io.mockk.*
 import org.bukkit.craftbukkit.v1_20_R1.command.CraftConsoleCommandSender
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -29,10 +26,6 @@ class RegistrationTest : MockedPluginTest() {
         val isCommandSuccessful = notch types "/ps register $validUrl"
 
         isCommandSuccessful shouldBe true
-        /*verifyOrder {
-            configurationSection.set(any(), any())
-            playerServices.saveConfig()
-        }*/
         playerServiceRegistryPersistence.get().values shouldBe listOf(
             PlayerServiceEntry(
                 playerName = "Notch",
@@ -40,13 +33,6 @@ class RegistrationTest : MockedPluginTest() {
                 serviceUrl = validUrl,
             )
         )
-        /*
-        configurationSection.getValues(false) shouldContainExactly mapOf(
-            "Notch" to RegisteredService(
-                notch.uniqueId,
-                URL(validUrl)
-            )
-        )*/
     }
 
     @Test

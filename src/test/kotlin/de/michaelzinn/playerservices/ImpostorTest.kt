@@ -25,15 +25,6 @@ class ImpostorTest : MockedPluginTest() {
                 serviceUrl = "http://example.com/playerservice",
             )
         )
-        /*
-        shouldContainExactly mapOf(
-            "Notch" to RegisteredService(
-                notch.uniqueId,
-                URL("http://example.com/playerservice")
-            )
-        )
-
-         */
     }
 
     @Test
@@ -52,11 +43,5 @@ class ImpostorTest : MockedPluginTest() {
                 serviceUrl = "http://example.com/playerservice",
             )
         )
-        /*configurationSection.getValues(true) shouldContainExactly mapOf(
-            "Notch" to RegisteredService(
-                notch.uniqueId,
-                URL("http://example.com/playerservice")
-            )
-        )*/
     }
 }

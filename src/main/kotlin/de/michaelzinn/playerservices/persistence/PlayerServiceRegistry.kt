@@ -11,10 +11,6 @@ import java.util.*
 class PlayerServiceRegistry(
     val persistence: PlayerServiceRegistryPersistence,
 ) {
-/*
-    private fun save() {
-        persistence.save()
-    }*/
 
     fun getNames(): List<String> {
         val names = persistence.get().keys.sorted()
