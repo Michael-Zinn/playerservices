@@ -31,7 +31,8 @@ class UnregistrationTest : MockedPluginTest() {
             player("Herobrine") to "http://example.com/herobrineplayerservice"
         )
 
-        val isCommandSuccessful = "Notch" types "/ps unregister" //) { isCommandSuccessful ->
+        val isCommandSuccessful = "Notch" types "/ps unregister"
+
         isCommandSuccessful shouldBe false
         configurationSection.getKeys(true) shouldContainExactly setOf("Herobrine")
     }

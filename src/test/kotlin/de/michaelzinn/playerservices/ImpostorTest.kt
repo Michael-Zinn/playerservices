@@ -17,8 +17,8 @@ class ImpostorTest : MockedPluginTest() {
         givenRegisteredPlayerServices(notch to "http://example.com/playerservice")
 
         val impostor = player("Notch", IMPOSTOR_PLAYER_UUID)
-
         val isCommandSuccessful = impostor types "/ps register http://example.com/impostor-took-your-service"
+
         isCommandSuccessful shouldBe false
         configurationSection.getValues(true) shouldContainExactly mapOf(
             "Notch" to RegisteredService(
@@ -35,6 +35,7 @@ class ImpostorTest : MockedPluginTest() {
 
         val impostor = player("Notch", IMPOSTOR_PLAYER_UUID)
         val isCommandSuccessful = impostor types "/ps unregister"
+
         isCommandSuccessful shouldBe false
         configurationSection.getValues(true) shouldContainExactly mapOf(
             "Notch" to RegisteredService(

@@ -41,8 +41,8 @@ class UsageTest : MockedPluginTest() {
         )
 
         val isCommandSuccessful = "Notch" types "$command Player"
-        isCommandSuccessful shouldBe true
 
+        isCommandSuccessful shouldBe true
         // TODO: When a real HTTP client is used, verify service of "Player" was called
     }
 
