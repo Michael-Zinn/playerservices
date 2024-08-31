@@ -93,20 +93,8 @@ class PlayerServicesCommandExecutor(
 
     // Fake synchronous, returns true when it launches asynchronous stuff.
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>?): Boolean {
-        parentPlugin.logger.info("Command $label (alias for ${command.name}) requested on ${parentPlugin.server.name}, ${parentPlugin.server.ip}, ${parentPlugin.server.port} by ${sender.name}")
-
-        if (sender !is Player) {
-            sender.sendPlainMessage("You must be a player to use PlayerServices commands")
-            return false
-        }
-
-        when (command.name) {
-            "ps" -> handleRegistrationCommand(sender, command, args, {})
-            "p" -> handleUserCommandPrivacyMode(sender, args, {})
-            "s" -> handleUserCommandSharingMode(sender, args, {})
-        }
-
-        return true // pure fiction
+        onCommandAsync(sender, command, label, args, {})
+        return true
     }
 
     fun onCommandAsync(
