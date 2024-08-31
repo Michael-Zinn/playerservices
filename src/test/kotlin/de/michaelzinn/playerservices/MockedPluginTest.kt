@@ -2,8 +2,10 @@ package de.michaelzinn.playerservices
 
 import com.github.michaelbull.result.Ok
 import de.michaelzinn.playerservices.async.MainThreadDispatcher
-import de.michaelzinn.playerservices.data.RegisteredService
+import de.michaelzinn.playerservices.data.PlayerServiceEntry
 import de.michaelzinn.playerservices.net.PlayerServiceClient
+import de.michaelzinn.playerservices.persistence.PlayerServiceRegistry
+import de.michaelzinn.playerservices.persistence.PlayerServiceRegistryPersistence
 import de.michaelzinn.playerservices.util.Ok
 import io.mockk.*
 import kotlinx.coroutines.CoroutineScope
@@ -11,8 +13,6 @@ import kotlinx.coroutines.launch
 import org.bukkit.World
 import org.bukkit.command.CommandSender
 import org.bukkit.command.PluginCommand
-import org.bukkit.configuration.ConfigurationSection
-import org.bukkit.configuration.MemoryConfiguration
 import org.bukkit.entity.Player
 import org.bukkit.plugin.Plugin
 import org.bukkit.scheduler.BukkitScheduler
@@ -25,8 +25,10 @@ open class MockedPluginTest {
     private lateinit var commandExecutor: PlayerServicesCommandExecutor
 
     protected lateinit var client: PlayerServiceClient
-    protected lateinit var configurationSection: ConfigurationSection
+
+    //protected lateinit var configurationSection: ConfigurationSection
     protected lateinit var playerServices: PlayerServices
+    protected lateinit var playerServiceRegistryPersistence: PlayerServiceRegistryPersistence
     protected lateinit var scheduler: BukkitScheduler
     protected lateinit var mockedWorld: World
 
@@ -36,22 +38,30 @@ open class MockedPluginTest {
     fun setUpMocks() {
         clearAllMocks()
 
-        client = buildClientMock()
-        configurationSection = spyk(MemoryConfiguration())
         playerServices = buildPlayerServicesMock()
+        playerServiceRegistryPersistence = buildPlayerServiceRegistryPersistence()
+        client = buildClientMock()
         scheduler = buildBukkitSchedulerMock()
+
         mockedWorld = buildWorldMock()
+        //configurationSection = spyk(MemoryConfiguration())
 
         testMainDispatcher = MainThreadDispatcher(playerServices, scheduler)
 
-        commandExecutor = PlayerServicesCommandExecutor(playerServices, configurationSection, client, scheduler)
+        commandExecutor = PlayerServicesCommandExecutor(
+            parentPlugin = playerServices,
+            registry = PlayerServiceRegistry(playerServiceRegistryPersistence),
+            //configurationSection,
+            client = client,
+            scheduler = scheduler
+        )
     }
 
     fun test(code: suspend () -> Unit) {
         CoroutineScope(testMainDispatcher).launch {
             code()
         }
-        return Unit
+        return
     }
 
     private fun buildPlayerServicesMock(): PlayerServices = mockk {
@@ -66,9 +76,22 @@ open class MockedPluginTest {
         every { saveConfig() } just runs
     }
 
+    private fun buildPlayerServiceRegistryPersistence(): PlayerServiceRegistryPersistence = mockk {
+        var entries: MutableMap<String, PlayerServiceEntry> = mutableMapOf()
+        every { add(any()) } answers {
+            val entry = it.invocation.args[0] as PlayerServiceEntry
+            entries.put(entry.playerName, entry)
+        }
+        every { remove(any()) } answers {
+            entries.remove(it.invocation.args[0])
+        }
+        every { get() } returns entries
+    }
+
     private fun buildClientMock(): PlayerServiceClient = mockk {
         every { register(any()) } returns Ok()
-        every { sharingRequest(any(), any()) } returns Ok("Sharing Ok!")
+        every { sharingRequest(any<String>(), any()) } returns Ok("Sharing Ok!")
+        every { sharingRequest(any<URL>(), any()) } returns Ok("Sharing Ok!")
         every { privateRequest() } returns Ok("Private Ok!")
     }
 
@@ -91,9 +114,20 @@ open class MockedPluginTest {
     }
 
     protected fun givenRegisteredPlayerServices(vararg registeredServices: Pair<Player, String>) {
+        val newEntries = registeredServices.map { (player, url) ->
+            PlayerServiceEntry(
+                playerName = player.name,
+                playerUuid = player.uniqueId.toString(),
+                serviceUrl = url,
+            )
+        }.forEach { entry ->
+            playerServiceRegistryPersistence.add(entry)
+        }
+
+        /*
         registeredServices.forEach {
             configurationSection[it.first.name] = RegisteredService(it.first.uniqueId, URL(it.second))
-        }
+        }*/
     }
 
     protected infix fun String.startsTyping(input: String) = player(this@startsTyping) startsTyping input

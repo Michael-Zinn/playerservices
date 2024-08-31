@@ -19,6 +19,7 @@ dependencies {
     paperweight.paperDevBundle("1.20.1-R0.1-SNAPSHOT")
 
     implementation("com.michael-bull.kotlin-result:kotlin-result:2.0.0")
+    implementation("com.michael-bull.kotlin-result:kotlin-result-coroutines:2.0.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0-RC.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")

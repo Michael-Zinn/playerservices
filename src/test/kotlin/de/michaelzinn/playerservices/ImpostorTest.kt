@@ -1,10 +1,8 @@
 package de.michaelzinn.playerservices
 
-import de.michaelzinn.playerservices.data.RegisteredService
-import io.kotest.matchers.maps.shouldContainExactly
+import de.michaelzinn.playerservices.data.PlayerServiceEntry
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
-import java.net.URL
 import java.util.*
 
 private val NOTCH_PLAYER_UUID = UUID.fromString("0-0-0-0-0")
@@ -20,12 +18,22 @@ class ImpostorTest : MockedPluginTest() {
         val isCommandSuccessful = impostor types "/ps register http://example.com/impostor-took-your-service"
 
         isCommandSuccessful shouldBe false
-        configurationSection.getValues(true) shouldContainExactly mapOf(
+        playerServiceRegistryPersistence.get().values shouldBe listOf(
+            PlayerServiceEntry(
+                playerName = "Notch",
+                playerUuid = notch.uniqueId.toString(),
+                serviceUrl = "http://example.com/playerservice",
+            )
+        )
+        /*
+        shouldContainExactly mapOf(
             "Notch" to RegisteredService(
                 notch.uniqueId,
                 URL("http://example.com/playerservice")
             )
         )
+
+         */
     }
 
     @Test
@@ -37,11 +45,18 @@ class ImpostorTest : MockedPluginTest() {
         val isCommandSuccessful = impostor types "/ps unregister"
 
         isCommandSuccessful shouldBe false
-        configurationSection.getValues(true) shouldContainExactly mapOf(
+        playerServiceRegistryPersistence.get().values shouldBe listOf(
+            PlayerServiceEntry(
+                playerName = "Notch",
+                playerUuid = notch.uniqueId.toString(),
+                serviceUrl = "http://example.com/playerservice",
+            )
+        )
+        /*configurationSection.getValues(true) shouldContainExactly mapOf(
             "Notch" to RegisteredService(
                 notch.uniqueId,
                 URL("http://example.com/playerservice")
             )
-        )
+        )*/
     }
 }

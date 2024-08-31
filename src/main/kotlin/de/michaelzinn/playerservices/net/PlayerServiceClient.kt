@@ -27,7 +27,7 @@ class PlayerServiceClient {
         class Timeout(message: String) : RegistrationError(message)
     }
 
-    data class RequestError(val message: String)
+    // data class RequestError(val message: String)
 
     /**
      * Attempt to register a service with a user.
@@ -76,9 +76,10 @@ class PlayerServiceClient {
         }
     }
 
-    fun privateRequest(): Result<String, RequestError> = Err(RequestError("Private requests are not implemented yet!"))
+    fun privateRequest(): Result<String, String> = Err("Private requests are not implemented yet!")
 
-    fun sharingRequest(url: URL, requestBody: PlayerServiceRequestBody): Result<String, RequestError> {
+    fun sharingRequest(url: String, requestBody: PlayerServiceRequestBody) = sharingRequest(URL(url), requestBody)
+    fun sharingRequest(url: URL, requestBody: PlayerServiceRequestBody): Result<String, String> {
         val requestBodyJson = Json.encodeToString(requestBody).toRequestBody(playerServiceMediaType)
 
         val request = Request.Builder()
@@ -86,17 +87,17 @@ class PlayerServiceClient {
             .post(requestBodyJson)
             .build()
 
-        try {
-            return client.newCall(request).execute().use { response ->
+        return try {
+            client.newCall(request).execute().use { response ->
                 val body = response.body
                 when {
                     response.isSuccessful && body != null -> Ok(body.string())
-                    response.isSuccessful && body == null -> Err(RequestError("Response contained no body!"))
-                    else -> Err(RequestError("Unexpected code $response"))
+                    response.isSuccessful && body == null -> Err("Response contained no body!")
+                    else -> Err("Unexpected code $response")
                 }
             }
         } catch (timeout: java.net.SocketTimeoutException) {
-            return Err(RequestError("Timeout: ${timeout.localizedMessage}"))
+            Err("Timeout: ${timeout.localizedMessage}")
         }
     }
 

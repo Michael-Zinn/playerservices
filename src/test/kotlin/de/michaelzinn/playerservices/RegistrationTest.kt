@@ -1,16 +1,17 @@
 package de.michaelzinn.playerservices
 
-import de.michaelzinn.playerservices.data.RegisteredService
+import de.michaelzinn.playerservices.data.PlayerServiceEntry
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
-import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.maps.shouldHaveSize
 import io.kotest.matchers.shouldBe
-import io.mockk.*
+import io.mockk.every
+import io.mockk.just
+import io.mockk.mockk
+import io.mockk.runs
 import org.bukkit.craftbukkit.v1_20_R1.command.CraftConsoleCommandSender
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
-import java.net.URL
 
 class RegistrationTest : MockedPluginTest() {
     @ParameterizedTest
@@ -28,16 +29,24 @@ class RegistrationTest : MockedPluginTest() {
         val isCommandSuccessful = notch types "/ps register $validUrl"
 
         isCommandSuccessful shouldBe true
-        verifyOrder {
+        /*verifyOrder {
             configurationSection.set(any(), any())
             playerServices.saveConfig()
-        }
+        }*/
+        playerServiceRegistryPersistence.get().values shouldBe listOf(
+            PlayerServiceEntry(
+                playerName = "Notch",
+                playerUuid = notch.uniqueId.toString(),
+                serviceUrl = validUrl,
+            )
+        )
+        /*
         configurationSection.getValues(false) shouldContainExactly mapOf(
             "Notch" to RegisteredService(
                 notch.uniqueId,
                 URL(validUrl)
             )
-        )
+        )*/
     }
 
     @Test
@@ -45,7 +54,7 @@ class RegistrationTest : MockedPluginTest() {
         "Notch" types "/ps register http://example.com/notchplayerservice"
         "Herobrine" types "/ps register http://example.com/herobrineplayerservice"
 
-        configurationSection.getKeys(true) shouldContainExactlyInAnyOrder setOf(
+        playerServiceRegistryPersistence.get().keys shouldContainExactlyInAnyOrder setOf(
             "Notch",
             "Herobrine"
         )
@@ -57,10 +66,11 @@ class RegistrationTest : MockedPluginTest() {
 
         notch types "/ps register http://example.com/v1/playerservice"
         notch types "/ps register http://example.com/v2/playerservice"
-        configurationSection.getValues(false) shouldContainExactly mapOf(
-            "Notch" to RegisteredService(
-                notch.uniqueId,
-                URL("http://example.com/v2/playerservice")
+        playerServiceRegistryPersistence.get().values shouldBe listOf(
+            PlayerServiceEntry(
+                playerName = "Notch",
+                playerUuid = notch.uniqueId.toString(),
+                serviceUrl = "http://example.com/v2/playerservice"
             )
         )
     }
@@ -76,7 +86,7 @@ class RegistrationTest : MockedPluginTest() {
     fun `rejects an invalid URL`(invalidUrl: String) = test {
         val isCommandSuccessful = "Notch" types "/ps register $invalidUrl"
         isCommandSuccessful shouldBe false
-        configurationSection.getValues(true) shouldHaveSize 0
+        playerServiceRegistryPersistence.get() shouldHaveSize 0
     }
 
     @Test
