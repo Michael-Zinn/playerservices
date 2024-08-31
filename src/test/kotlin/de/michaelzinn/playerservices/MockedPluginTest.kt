@@ -1,10 +1,13 @@
 package de.michaelzinn.playerservices
 
 import com.github.michaelbull.result.Ok
+import de.michaelzinn.playerservices.async.MainThreadDispatcher
 import de.michaelzinn.playerservices.data.RegisteredService
 import de.michaelzinn.playerservices.net.PlayerServiceClient
 import de.michaelzinn.playerservices.util.Ok
 import io.mockk.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.bukkit.World
 import org.bukkit.command.CommandSender
 import org.bukkit.command.PluginCommand
@@ -27,6 +30,8 @@ open class MockedPluginTest {
     protected lateinit var scheduler: BukkitScheduler
     protected lateinit var mockedWorld: World
 
+    protected lateinit var testMainDispatcher: MainThreadDispatcher
+
     @BeforeEach
     fun setUpMocks() {
         clearAllMocks()
@@ -37,7 +42,16 @@ open class MockedPluginTest {
         scheduler = buildBukkitSchedulerMock()
         mockedWorld = buildWorldMock()
 
+        testMainDispatcher = MainThreadDispatcher(playerServices, scheduler)
+
         commandExecutor = PlayerServicesCommandExecutor(playerServices, configurationSection, client, scheduler)
+    }
+
+    fun test(code: suspend () -> Unit) {
+        CoroutineScope(testMainDispatcher).launch {
+            code()
+        }
+        return Unit
     }
 
     private fun buildPlayerServicesMock(): PlayerServices = mockk {
@@ -94,30 +108,17 @@ open class MockedPluginTest {
         return commandExecutor.onTabCompete(this@startsTyping, pluginCommand, args)
     }
 
-    protected infix fun String.types(input: String) = player(this@types) types input
+    protected suspend infix fun String.types(input: String) = player(this@types) types input
 
-    protected fun String.types(input: String, callback: (Boolean) -> Unit) = player(this@types).types(input, callback)
-
-    protected infix fun CommandSender.types(input: String): Boolean {
+    protected suspend infix fun CommandSender.types(input: String): Boolean {
         val (command, args) = splitIntoCommandAndArgs(input)
 
         val pluginCommand: PluginCommand = mockk {
             every { name } returns command
         }
 
-        return commandExecutor.onCommand(this@types, pluginCommand, input, args)
+        return commandExecutor.onCommandAsync(this@types, pluginCommand, input, args)
     }
-
-    protected fun CommandSender.types(input: String, callback: (Boolean) -> Unit) {
-        val (command, args) = splitIntoCommandAndArgs(input)
-
-        val pluginCommand: PluginCommand = mockk {
-            every { name } returns command
-        }
-
-        commandExecutor.onCommandAsync(this@types, pluginCommand, input, args, callback)
-    }
-
 
     protected fun player(name: String, uniqueId: UUID = UUID.randomUUID()): Player = mockk {
         every { server } returns playerServices.server

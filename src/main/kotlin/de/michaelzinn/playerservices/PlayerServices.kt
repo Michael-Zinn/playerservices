@@ -58,10 +58,10 @@ class PlayerServicesCommandExecutor(
     private val scheduler: BukkitScheduler = Bukkit.getScheduler(),
 ) : CommandExecutor {
 
-    val mainDispatcher = MainThreadDispatcher(parentPlugin, scheduler)
-    val asyncDispatcher = AsyncDispatcher(parentPlugin, scheduler)
+    private val mainDispatcher = MainThreadDispatcher(parentPlugin, scheduler)
+    private val asyncDispatcher = AsyncDispatcher(parentPlugin, scheduler)
 
-    suspend inline fun <T> async(crossinline code: () -> T) = withContext(asyncDispatcher) {
+    private suspend inline fun <T> async(crossinline code: () -> T) = withContext(asyncDispatcher) {
         code()
     }
 
@@ -248,7 +248,7 @@ class PlayerServicesCommandExecutor(
                 mcServerName = player.server.name,
                 mcServerIp = player.server.ip,
                 playerName = player.name,
-                playerUuid = player.uniqueId.toString(),// .identity().uuid().toString(),
+                playerUuid = player.uniqueId.toString(),
                 serviceUrl = serviceUrl,
             )
 

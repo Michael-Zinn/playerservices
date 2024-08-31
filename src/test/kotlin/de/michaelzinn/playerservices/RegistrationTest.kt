@@ -21,7 +21,8 @@ class RegistrationTest : MockedPluginTest() {
             "http://[2001:0db8:85a3:0000:0000:8a2e:0370:7334]/playerservice",
             "http://[::1]/playerservice"]
     )
-    fun `registers a player service`(validUrl: String) {
+    fun `registers a player service`(validUrl: String) = test {
+
         val notch = player("Notch")
 
         val isCommandSuccessful = notch types "/ps register $validUrl"
@@ -40,7 +41,7 @@ class RegistrationTest : MockedPluginTest() {
     }
 
     @Test
-    fun `registers one service per player`() {
+    fun `registers one service per player`() = test {
         "Notch" types "/ps register http://example.com/notchplayerservice"
         "Herobrine" types "/ps register http://example.com/herobrineplayerservice"
 
@@ -51,19 +52,17 @@ class RegistrationTest : MockedPluginTest() {
     }
 
     @Test
-    fun `re-registration overwrites previous service`() {
+    fun `re-registration overwrites previous service`() = test {
         val notch = player("Notch")
 
-        notch.types("/ps register http://example.com/v1/playerservice") {
-            notch.types("/ps register http://example.com/v2/playerservice") {
-                configurationSection.getValues(false) shouldContainExactly mapOf(
-                    "Notch" to RegisteredService(
-                        notch.uniqueId,
-                        URL("http://example.com/v2/playerservice")
-                    )
-                )
-            }
-        }
+        notch types "/ps register http://example.com/v1/playerservice"
+        notch types "/ps register http://example.com/v2/playerservice"
+        configurationSection.getValues(false) shouldContainExactly mapOf(
+            "Notch" to RegisteredService(
+                notch.uniqueId,
+                URL("http://example.com/v2/playerservice")
+            )
+        )
     }
 
     @ParameterizedTest
@@ -74,36 +73,32 @@ class RegistrationTest : MockedPluginTest() {
             "://example.com/",
             "http://[:::1]/playerservice"]
     )
-    fun `rejects an invalid URL`(invalidUrl: String) {
-        "Notch".types("/ps register $invalidUrl") { isCommandSuccessful ->
-            isCommandSuccessful shouldBe false
-            configurationSection.getValues(true) shouldHaveSize 0
-        }
+    fun `rejects an invalid URL`(invalidUrl: String) = test {
+        val isCommandSuccessful = "Notch" types "/ps register $invalidUrl"
+        isCommandSuccessful shouldBe false
+        configurationSection.getValues(true) shouldHaveSize 0
     }
 
     @Test
-    fun `rejects empty command`() {
-        "Notch".types("") { isCommandSuccessful ->
-            isCommandSuccessful shouldBe false
-        }
+    fun `rejects empty command`() = test {
+        val isCommandSuccessful = "Notch" types ""
+        isCommandSuccessful shouldBe false
     }
 
     @Test
-    fun `rejects empty registration command`() {
-        "Notch".types("/ps") { isCommandSuccessful ->
-            isCommandSuccessful shouldBe false
-        }
+    fun `rejects empty registration command`() = test {
+        val isCommandSuccessful = "Notch" types ("/ps")
+        isCommandSuccessful shouldBe false
     }
 
     @Test
-    fun `rejects an unknown registration command`() {
-        "Notch".types("/ps pspsps") { isCommandSuccessful ->
-            isCommandSuccessful shouldBe false
-        }
+    fun `rejects an unknown registration command`() = test {
+        val isCommandSuccessful = "Notch" types "/ps pspsps"
+        isCommandSuccessful shouldBe false
     }
 
     @Test
-    fun `rejects non-players`() {
+    fun `rejects non-players`() = test {
         val serverConsole = mockk<CraftConsoleCommandSender> {
             every { name } returns "CONSOLE"
             every { sendPlainMessage(any()) } just runs

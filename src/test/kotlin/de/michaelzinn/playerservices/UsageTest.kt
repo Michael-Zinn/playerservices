@@ -10,7 +10,7 @@ import org.junit.jupiter.params.provider.ValueSource
 class UsageTest : MockedPluginTest() {
     @ParameterizedTest
     @ValueSource(strings = ["/p", "/s"])
-    fun `calls existing service`(command: String) {
+    fun `calls existing service`(command: String) = test {
         givenRegisteredPlayerServices(player("Herobrine") to "http://example.com/playerservice")
         val notch = player("Notch")
 
@@ -24,7 +24,7 @@ class UsageTest : MockedPluginTest() {
 
     @ParameterizedTest
     @ValueSource(strings = ["/p", "/s"])
-    fun `calls service when partial owner name given`(command: String) {
+    fun `calls service when partial owner name given`(command: String) = test {
         givenRegisteredPlayerServices(player("Herobrine") to "http://example.com/playerservice")
 
         val isCommandSuccessful = "Notch" types "$command hero"
@@ -34,37 +34,35 @@ class UsageTest : MockedPluginTest() {
 
     @ParameterizedTest
     @ValueSource(strings = ["/p", "/s"])
-    fun `exact owner name match wins over partial match`(command: String) {
+    fun `exact owner name match wins over partial match`(command: String) = test {
         givenRegisteredPlayerServices(
             player("Player") to "http://example.com/playerservice",
             player("PlayerWithSuffix") to "http://example.com/otherservice"
         )
 
-        "Notch".types("$command Player") { isCommandSuccessful ->
-            isCommandSuccessful shouldBe true
-        }
+        val isCommandSuccessful = "Notch" types "$command Player"
+        isCommandSuccessful shouldBe true
+
         // TODO: When a real HTTP client is used, verify service of "Player" was called
     }
 
     @ParameterizedTest
     @ValueSource(strings = ["/p", "/s"])
-    fun `rejects ambiguous partial owner name`(command: String) {
+    fun `rejects ambiguous partial owner name`(command: String) = test {
         givenRegisteredPlayerServices(
             player("Player1") to "http://example.com/player1service",
             player("player2") to "http://example.com/player2service"
         )
 
-        "Notch".types("$command p") { isCommandSuccessful ->
-            isCommandSuccessful shouldBe false
-        }
+        val isCommandSuccessful = "Notch" types "$command p"
+        isCommandSuccessful shouldBe false
     }
 
     @ParameterizedTest
     @ValueSource(strings = ["/p", "/s"])
-    fun `ignores non-existing service`(command: String) {
-        "Notch".types("$command Herobrine") { isCommandSuccessful ->
-            isCommandSuccessful shouldBe false
-        }
+    fun `ignores non-existing service`(command: String) = test {
+        val isCommandSuccessful = "Notch" types "$command Herobrine"
+        isCommandSuccessful shouldBe false
     }
 
     @Test
@@ -79,7 +77,7 @@ class UsageTest : MockedPluginTest() {
 
     @ParameterizedTest
     @ValueSource(strings = ["/p", "/s"])
-    fun `rejects non-player callers`(command: String) {
+    fun `rejects non-player callers`(command: String) = test {
         givenRegisteredPlayerServices(player("Herobrine") to "http://example.com/playerservice")
         val serverConsole = mockk<CraftConsoleCommandSender> {
             every { name } returns "CONSOLE"
@@ -93,9 +91,8 @@ class UsageTest : MockedPluginTest() {
 
     @ParameterizedTest
     @ValueSource(strings = ["/p", "/s"])
-    fun `rejects empty user command`(command: String) {
-        "Notch".types(command) { isCommandSuccessful ->
-            isCommandSuccessful shouldBe false
-        }
+    fun `rejects empty user command`(command: String) = test {
+        val isCommandSuccessful = "Notch" types command
+        isCommandSuccessful shouldBe false
     }
 }

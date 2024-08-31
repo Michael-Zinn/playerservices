@@ -12,37 +12,35 @@ private val IMPOSTOR_PLAYER_UUID = UUID.fromString("1-1-1-1-1")
 
 class ImpostorTest : MockedPluginTest() {
     @Test
-    fun `can't re-register a service with a different player UUID`() {
+    fun `can't re-register a service with a different player UUID`() = test {
         val notch = player("Notch", NOTCH_PLAYER_UUID)
         givenRegisteredPlayerServices(notch to "http://example.com/playerservice")
 
         val impostor = player("Notch", IMPOSTOR_PLAYER_UUID)
 
-        impostor.types("/ps register http://example.com/impostor-took-your-service") { isCommandSuccessful ->
-            isCommandSuccessful shouldBe false
-            configurationSection.getValues(true) shouldContainExactly mapOf(
-                "Notch" to RegisteredService(
-                    notch.uniqueId,
-                    URL("http://example.com/playerservice")
-                )
+        val isCommandSuccessful = impostor types "/ps register http://example.com/impostor-took-your-service"
+        isCommandSuccessful shouldBe false
+        configurationSection.getValues(true) shouldContainExactly mapOf(
+            "Notch" to RegisteredService(
+                notch.uniqueId,
+                URL("http://example.com/playerservice")
             )
-        }
+        )
     }
 
     @Test
-    fun `can't unregister a service with a different player UUID`() {
+    fun `can't unregister a service with a different player UUID`() = test {
         val notch = player("Notch", NOTCH_PLAYER_UUID)
         givenRegisteredPlayerServices(notch to "http://example.com/playerservice")
 
         val impostor = player("Notch", IMPOSTOR_PLAYER_UUID)
-        impostor.types("/ps unregister") { isCommandSuccessful ->
-            isCommandSuccessful shouldBe false
-            configurationSection.getValues(true) shouldContainExactly mapOf(
-                "Notch" to RegisteredService(
-                    notch.uniqueId,
-                    URL("http://example.com/playerservice")
-                )
+        val isCommandSuccessful = impostor types "/ps unregister"
+        isCommandSuccessful shouldBe false
+        configurationSection.getValues(true) shouldContainExactly mapOf(
+            "Notch" to RegisteredService(
+                notch.uniqueId,
+                URL("http://example.com/playerservice")
             )
-        }
+        )
     }
 }
