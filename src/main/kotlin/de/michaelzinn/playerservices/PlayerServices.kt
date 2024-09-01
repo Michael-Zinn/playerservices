@@ -1,28 +1,42 @@
 package de.michaelzinn.playerservices
 
+import com.github.michaelbull.result.Err
+import com.github.michaelbull.result.coroutines.coroutineBinding
+import com.github.michaelbull.result.mapError
+import com.github.michaelbull.result.runCatching
+import de.michaelzinn.playerservices.async.AsyncDispatcher
+import de.michaelzinn.playerservices.async.MainThreadDispatcher
+import de.michaelzinn.playerservices.net.*
+import de.michaelzinn.playerservices.persistence.PlayerServiceRegistry
+import de.michaelzinn.playerservices.persistence.PlayerServiceRegistryPersistence
+import de.michaelzinn.playerservices.util.Ok
+import de.michaelzinn.playerservices.util.sendErrorMessage
+import de.michaelzinn.playerservices.util.toBoolean
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
-import org.bukkit.configuration.ConfigurationSection
-import org.bukkit.configuration.serialization.ConfigurationSerializable
-import org.bukkit.configuration.serialization.ConfigurationSerialization
 import org.bukkit.entity.Player
 import org.bukkit.plugin.java.JavaPlugin
-import java.net.MalformedURLException
+import org.bukkit.scheduler.BukkitScheduler
 import java.net.URL
-import java.util.*
 
 @Suppress("unused") // Instantiated by the server
 class PlayerServices : JavaPlugin() {
     private lateinit var delegate: PlayerServicesCommandExecutor
 
     override fun onLoad() {
-        ConfigurationSerialization.registerClass(RegisteredService::class.java)
         saveDefaultConfig()
-        val servicesConfigSection = config.getConfigurationSection("services") ?: config.createSection("services")
         saveConfig()
 
-        delegate = PlayerServicesCommandExecutor(servicesConfigSection, this)
+        delegate = PlayerServicesCommandExecutor(
+            parentPlugin = this,
+            registry = PlayerServiceRegistry(PlayerServiceRegistryPersistence(this)),
+            client = PlayerServiceClient()
+        )
     }
 
     override fun onTabComplete(
@@ -39,9 +53,17 @@ class PlayerServices : JavaPlugin() {
 
 
 class PlayerServicesCommandExecutor(
-    private val playerServicesConfig: ConfigurationSection,
-    private val parentPlugin: JavaPlugin
+    private val parentPlugin: JavaPlugin,
+    private val registry: PlayerServiceRegistry,
+    private val client: PlayerServiceClient,
+    scheduler: BukkitScheduler = Bukkit.getScheduler(),
 ) : CommandExecutor {
+
+    private val mainDispatcher = MainThreadDispatcher(parentPlugin, scheduler)
+    private val asyncDispatcher = AsyncDispatcher(parentPlugin, scheduler)
+
+    private suspend inline fun <T> async(crossinline code: () -> T) = withContext(asyncDispatcher) { code() }
+
     fun onTabCompete(sender: CommandSender, command: Command, args: Array<out String>?): MutableList<String>? {
         if (sender !is Player) return null
 
@@ -52,21 +74,30 @@ class PlayerServicesCommandExecutor(
 
         return when (command.name) {
             "ps" -> completeSubcommand(sender.name)
-            "p", "s" -> completeServiceOwnerNames(searchedOwnerName).toMutableList()
+            "p", "s" -> registry.completeServiceOwnerNames(searchedOwnerName).toMutableList()
             else -> null
         }
     }
 
     private fun completeSubcommand(senderName: String) =
-        if (playerServicesConfig.contains(senderName)) mutableListOf("register", "unregister")
-        else mutableListOf("register")
+        if (registry.contains(senderName)) {
+            mutableListOf("register", "unregister")
+        } else {
+            mutableListOf("register")
+        }
 
-    private fun completeServiceOwnerNames(searchedOwnerName: String) =
-        playerServicesConfig.getKeys(false)
-            .filter { it.startsWith(searchedOwnerName, ignoreCase = true) }
-            .take(10)
-
+    // Fake synchronous, returns true when it launches asynchronous stuff.
     override fun onCommand(sender: CommandSender, command: Command, label: String, args: Array<out String>?): Boolean {
+        CoroutineScope(mainDispatcher).launch { onCommandAsync(sender, command, label, args) }
+        return true
+    }
+
+    suspend fun onCommandAsync(
+        sender: CommandSender,
+        command: Command,
+        label: String,
+        args: Array<out String>?,
+    ): Boolean {
         parentPlugin.logger.info("Command $label (alias for ${command.name}) requested on ${parentPlugin.server.name}, ${parentPlugin.server.ip}, ${parentPlugin.server.port} by ${sender.name}")
 
         if (sender !is Player) {
@@ -75,111 +106,130 @@ class PlayerServicesCommandExecutor(
         }
 
         return when (command.name) {
-            "ps" -> handleRegistrationCommand(sender, command, args)
+            "ps" -> handleRegistrationCommand(sender, args)
             "p" -> handleUserCommandPrivacyMode(sender, args)
             "s" -> handleUserCommandSharingMode(sender, args)
             else -> false
         }
     }
 
-    private fun handleRegistrationCommand(sender: Player, command: Command, args: Array<out String>?): Boolean =
+    private suspend fun handleRegistrationCommand(
+        player: Player,
+        args: Array<out String>?,
+    ): Boolean =
         when {
-            args.isNullOrEmpty() -> rejectEmptyCommand(sender)
-            args.size == 1 && args[0] == "unregister" -> unregister(sender)
-            args.size == 2 && args[0] == "register" -> register(sender, args[1])
+            args.isNullOrEmpty() -> rejectEmptyCommand(player)
+            args.size == 1 && args[0] == "unregister" -> unregister(player)
+            args.size == 2 && args[0] == "register" -> register(player, args[1])
             else -> false
         }
 
-    private fun handleUserCommandPrivacyMode(sender: Player, args: Array<out String>?): Boolean {
-        if (args.isNullOrEmpty()) return false
-
-        val searchedServiceOwner = args[0]
-        val service = searchServiceByOwner(searchedServiceOwner, sender) ?: return false
+    private suspend fun handleUserCommandPrivacyMode(
+        player: Player,
+        args: Array<out String>?
+    ): Boolean = coroutineBinding {
+        if (args.isNullOrEmpty()) Err("No player name given").bind<Unit>()
+        val searchedServiceOwner = args!![0]
+        val service = registry.searchServiceByOwner(searchedServiceOwner, player).bind()
 
         val providedArgs = args.drop(1)
-        sender.sendPlainMessage("Calling player service ${service.url} with arguments: ${providedArgs.joinToString()}")
-        return true
-    }
 
-    private fun searchServiceByOwner(searchedServiceOwner: String, sender: Player): RegisteredService? {
-        val exactMatch = playerServicesConfig.getObject(searchedServiceOwner, RegisteredService::class.java)
-        if (exactMatch != null) return exactMatch
+        val response = async { client.privateRequest() }.bind()
 
-        val partialMatches = completeServiceOwnerNames(searchedServiceOwner)
-        if (partialMatches.isEmpty()) {
-            sender.sendErrorMessage("No service registered for player $searchedServiceOwner")
-            return null
-        }
-        if (partialMatches.size > 1) {
-            sender.sendErrorMessage("Player name $searchedServiceOwner is ambiguous, first ${partialMatches.size} candidates: ${partialMatches.joinToString()}")
-            return null
-        }
+        player.sendPlainMessage(response)
+    }.mapError { err: String ->
+        player.sendErrorMessage(err)
+    }.toBoolean()
 
-        return playerServicesConfig.getObject(partialMatches.first(), RegisteredService::class.java)!!
-    }
+    private suspend fun handleUserCommandSharingMode(
+        player: Player,
+        args: Array<out String>?
+    ): Boolean = coroutineBinding {
+        if (args.isNullOrEmpty()) Err("No player name given").bind<String>()
 
-    private fun handleUserCommandSharingMode(sender: Player, args: Array<out String>?): Boolean {
-        return handleUserCommandPrivacyMode(sender, args)
-    }
+        val searchedServiceOwner = args!![0]
+        val service = registry.searchServiceByOwner(searchedServiceOwner, player).bind()
+
+        val serviceArgs = args.drop(1)
+
+        val requestBody = PlayerServiceRequestBody(
+            server = ServerInfo(
+                mcServerName = parentPlugin.server.name,
+                mcServerIp = parentPlugin.server.ip,
+            ),
+            player = PlayerInfo(
+                name = player.name,
+                uuid = player.uniqueId.toString(),
+                location = PlayerLocationInfo(
+                    worldName = player.world.name,
+
+                    x = player.x,
+                    y = player.y,
+                    z = player.z,
+
+                    pitch = player.pitch,
+                    yaw = player.yaw,
+                )
+            ),
+            message = serviceArgs.joinToString(" ")
+        )
+
+        val response = async { client.sharingRequest(service.serviceUrl, requestBody) }.bind()
+        player.sendPlainMessage(response)
+
+    }.mapError { err: String ->
+        player.sendErrorMessage(err)
+    }.toBoolean()
 
     private fun rejectEmptyCommand(sender: Player): Boolean {
         sender.sendErrorMessage("No subcommand given")
         return false
     }
 
-    private fun unregister(sender: Player): Boolean {
-        if (!playerServicesConfig.contains(sender.name)) return false
-        if (hasDifferentPlayerUuid(sender)) return false
+    private fun unregister(player: Player): Boolean {
+        fun Player.sendUnregistrationMessage() = this.sendRichMessage("<green>Service unregistered for</green> $name")
 
-        playerServicesConfig[sender.name] = null
-        parentPlugin.saveConfig()
-        sender.sendUnregistrationMessage()
-        return true
+        val success = registry.unregister(player)
+
+        if (success) player.sendUnregistrationMessage()
+        return success
     }
 
-    private fun register(sender: Player, serviceUrl: String): Boolean {
-        try {
-            if (hasDifferentPlayerUuid(sender)) return false
+    private suspend fun register(
+        player: Player,
+        serviceUrl: String
+    ): Boolean = coroutineBinding {
 
-            val newService = RegisteredService(sender.uniqueId, URL(serviceUrl))
-            playerServicesConfig[sender.name] = newService
-            parentPlugin.saveConfig()
-            sender.sendRegistrationMessage(newService.url)
-            return true
-        } catch (ex: MalformedURLException) {
-            sender.sendErrorMessage("Invalid URL: $serviceUrl")
-            return false
-        }
-    }
-
-    private fun hasDifferentPlayerUuid(sender: Player): Boolean {
-        val currentOwnerId = playerServicesConfig.getObject(sender.name, RegisteredService::class.java)?.ownerId
-        val hasPlayerUuidChanged = currentOwnerId?.let { it != sender.uniqueId }
-        return hasPlayerUuidChanged ?: false
-    }
-}
-
-data class RegisteredService(val ownerId: UUID, val url: URL) : ConfigurationSerializable {
-    override fun serialize() = mutableMapOf(
-        "ownerId" to ownerId.toString(),
-        "url" to url.toString()
-    )
-
-    override fun toString() = "RegisteredService(ownerId=$ownerId, url=$url)"
-
-    companion object {
-        @JvmStatic
-        @Suppress("unused") // Called by the server for deserialization
-        fun deserialize(args: Map<String, Any>) = RegisteredService(
-            UUID.fromString(args["ownerId"] as String),
-            URL(args["url"] as String)
+        fun Player.sendRegistrationMessage(playerServiceUrl: URL) = this.sendRichMessage(
+            "<green>Service registered for</green> $name <green>at</green> $playerServiceUrl"
         )
-    }
+
+        // throws MalformedURLException
+        val url = runCatching { URL(serviceUrl) }.mapError { "Invalid URL: $serviceUrl" }.bind()
+
+        // Can't register if you squatted the player name from someone else.
+        // This could happen if the original player changed their username.
+        if (registry.hasDifferentPlayerUuid(player)) Err("Contact your server admin").bind<Unit>()
+
+        val requestBody = PlayerServiceRegistrationRequestBody(
+            mcServerName = player.server.name,
+            mcServerIp = player.server.ip,
+            playerName = player.name,
+            playerUuid = player.uniqueId.toString(),
+            serviceUrl = serviceUrl,
+        )
+
+        async { client.register(requestBody) }.mapError { it.message }.bind()
+
+        registry.register(
+            playerName = player.name,
+            playerUuid = player.uniqueId,
+            serviceUrl = url,
+        )
+        player.sendRegistrationMessage(url)
+
+    }.mapError { err: String ->
+        player.sendErrorMessage(err)
+    }.toBoolean()
+
 }
-
-fun Player.sendRegistrationMessage(playerServiceUrl: URL) =
-    this.sendRichMessage("<green>Service registered for</green> $name <green>at</green> $playerServiceUrl")
-
-fun Player.sendUnregistrationMessage() = this.sendRichMessage("<green>Service unregistered for</green> $name")
-
-fun Player.sendErrorMessage(message: String) = this.sendRichMessage("<red>Error:</red> $message")

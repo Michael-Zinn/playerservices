@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 
 class UnregistrationTest : MockedPluginTest() {
     @Test
-    fun `unregisters a player's own service`() {
+    fun `unregisters a player's own service`() = test {
         val notch = player("Notch")
         val herobrine = player("Herobrine")
         givenRegisteredPlayerServices(
@@ -18,15 +18,11 @@ class UnregistrationTest : MockedPluginTest() {
         val isCommandSuccessful = notch types "/ps unregister"
 
         isCommandSuccessful shouldBe true
-        verifyOrder {
-            configurationSection.set(any(), null)
-            playerServices.saveConfig()
-        }
-        configurationSection.getKeys(true) shouldContainExactly setOf("Herobrine")
+        playerServiceRegistryPersistence.get().keys shouldContainExactly setOf("Herobrine")
     }
 
     @Test
-    fun `unregistering without a player service does nothing`() {
+    fun `unregistering without a player service does nothing`() = test {
         givenRegisteredPlayerServices(
             player("Herobrine") to "http://example.com/herobrineplayerservice"
         )
@@ -34,8 +30,7 @@ class UnregistrationTest : MockedPluginTest() {
         val isCommandSuccessful = "Notch" types "/ps unregister"
 
         isCommandSuccessful shouldBe false
-        configurationSection.getKeys(true) shouldContainExactly setOf("Herobrine")
+        playerServiceRegistryPersistence.get().keys shouldContainExactly setOf("Herobrine")
     }
-
 
 }
