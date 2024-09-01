@@ -12,10 +12,7 @@ class PlayerServiceRegistry(
     val persistence: PlayerServiceRegistryPersistence,
 ) {
 
-    fun getNames(): List<String> {
-        val names = persistence.get().keys.sorted()
-        return names
-    }
+    fun getNames() = persistence.get().keys.sorted()
 
     fun contains(playerName: String) = getNames().contains(playerName)
 

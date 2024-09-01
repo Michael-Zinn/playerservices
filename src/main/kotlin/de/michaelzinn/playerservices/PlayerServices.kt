@@ -59,13 +59,10 @@ class PlayerServicesCommandExecutor(
     scheduler: BukkitScheduler = Bukkit.getScheduler(),
 ) : CommandExecutor {
 
-
     private val mainDispatcher = MainThreadDispatcher(parentPlugin, scheduler)
     private val asyncDispatcher = AsyncDispatcher(parentPlugin, scheduler)
 
-    private suspend inline fun <T> async(crossinline code: () -> T) = withContext(asyncDispatcher) {
-        code()
-    }
+    private suspend inline fun <T> async(crossinline code: () -> T) = withContext(asyncDispatcher) { code() }
 
     fun onTabCompete(sender: CommandSender, command: Command, args: Array<out String>?): MutableList<String>? {
         if (sender !is Player) return null
@@ -76,16 +73,8 @@ class PlayerServicesCommandExecutor(
         val searchedOwnerName: String = args?.firstOrNull() ?: ""
 
         return when (command.name) {
-            "ps" -> {
-                val bla = completeSubcommand(sender.name)
-                bla
-            }
-
-            "p", "s" -> {
-                val foundNames = registry.completeServiceOwnerNames(searchedOwnerName).toMutableList()
-                foundNames
-            }
-
+            "ps" -> completeSubcommand(sender.name)
+            "p", "s" -> registry.completeServiceOwnerNames(searchedOwnerName).toMutableList()
             else -> null
         }
     }
