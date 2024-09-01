@@ -137,7 +137,6 @@ class PlayerServicesCommandExecutor(
         val response = async { client.privateRequest() }.bind()
 
         player.sendPlainMessage(response)
-        Ok().bind()
     }.mapError { err: String ->
         player.sendErrorMessage(err)
     }.toBoolean()
