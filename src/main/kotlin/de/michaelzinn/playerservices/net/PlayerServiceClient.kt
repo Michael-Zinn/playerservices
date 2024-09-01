@@ -25,8 +25,6 @@ class PlayerServiceClient {
         data object Timeout : RegistrationError("Timeout")
     }
 
-    // data class RequestError(val message: String)
-
     /**
      * Attempt to register a service with a user.
      */
